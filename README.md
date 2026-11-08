@@ -24,9 +24,23 @@ It is inspired by HDDGuardian, rebuilt from scratch with modern drives in mind.
 | Platforms | Windows | **Windows, Linux, macOS** |
 | Portable | ✅ | ✅ single executable, data folder next to it |
 
+## Download
+
+Get the latest portable build from the **[Releases page](https://github.com/dmcinturf/SMART-Guardian/releases/latest)**:
+
+| Package | System |
+|---|---|
+| `smart-guardian-…-windows-x86_64.zip` | Windows 10/11 (64-bit) |
+| `smart-guardian-…-linux-x86_64.tar.gz` | Linux x86_64 |
+| `smart-guardian-…-macos-apple-silicon.tar.gz` | macOS on M-series Macs |
+| `smart-guardian-…-macos-intel.tar.gz` | macOS on Intel Macs |
+
+The binaries aren't code-signed. On Windows, SmartScreen may ask you to confirm (*More info → Run anyway*). On macOS,
+run `xattr -d com.apple.quarantine smart-guardian` once after extracting. `SHA256SUMS.txt` lets you verify downloads.
+
 ## Using it
 
-Download or build `smart-guardian` (`smart-guardian.exe` on Windows) and run it. No installation is needed.
+Extract the package (or build it yourself) and run `smart-guardian` (`smart-guardian.exe` on Windows). No installation is needed.
 
 * **Windows:** run as Administrator, or use the *Restart as Administrator* button.
 * **Linux:** run with `sudo`, or use the *Restart with pkexec* button. Temperatures from hwmon work without root.
@@ -125,3 +139,7 @@ crates/
 * Some USB-to-NVMe bridges and hardware RAID controllers need vendor-specific commands. Use the smartctl fallback.
 * SAS/SCSI drives report health status through smartctl only. There is no attribute table.
 * APM/AAM changes usually reset at the next power cycle.
+
+## License
+
+[MIT](LICENSE)

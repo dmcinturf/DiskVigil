@@ -15,19 +15,23 @@ jobs:
           - os: windows-latest
             target: x86_64-pc-windows-msvc
             exe: smart-guardian.exe
+            asset: windows-x86_64
             test: true
           - os: ubuntu-22.04
             target: x86_64-unknown-linux-gnu
             exe: smart-guardian
+            asset: linux-x86_64
             test: true
           - os: macos-latest
             target: aarch64-apple-darwin
             exe: smart-guardian
+            asset: macos-apple-silicon
             test: true
           # Intel Macs: cross-compiled on the Apple Silicon runner (tests run on the native target only)
           - os: macos-latest
             target: x86_64-apple-darwin
             exe: smart-guardian
+            asset: macos-intel
             test: false
     runs-on: ${{ matrix.os }}
     steps:
@@ -43,7 +47,56 @@ jobs:
       - if: matrix.test
         run: cargo test --workspace --target ${{ matrix.target }}
       - run: cargo build --release --target ${{ matrix.target }}
+      - name: Package
+        shell: bash
+        run: |
+          version="${GITHUB_REF_NAME}"
+          [[ "$GITHUB_REF" == refs/tags/v* ]] || version="dev-${GITHUB_SHA::7}"
+          name="smart-guardian-${version}-${{ matrix.asset }}"
+          mkdir -p "pkg/$name" dist
+          cp "target/${{ matrix.target }}/release/${{ matrix.exe }}" README.md LICENSE "pkg/$name/"
+          cd pkg
+          if [[ "$RUNNER_OS" == "Windows" ]]; then
+            7z a -tzip "../dist/$name.zip" "$name" > /dev/null
+          else
+            chmod +x "$name/${{ matrix.exe }}"
+            tar -czf "../dist/$name.tar.gz" "$name"
+          fi
+          ls -l ../dist
       - uses: actions/upload-artifact@v5
         with:
-          name: smart-guardian-${{ matrix.target }}
-          path: target/${{ matrix.target }}/release/${{ matrix.exe }}
+          name: smart-guardian-${{ matrix.asset }}
+          path: dist/*
+
+  release:
+    needs: build
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/download-artifact@v5
+        with:
+          path: dist
+          merge-multiple: true
+      - name: Checksums
+        run: cd dist && sha256sum * > SHA256SUMS.txt && cat SHA256SUMS.txt
+      - name: Publish GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          cat > notes.md <<'EOF'
+          Portable builds of SMART Guardian. Download the package for your system, extract it and run `smart-guardian`. No installation needed.
+
+          | Package | System |
+          |---|---|
+          | `windows-x86_64.zip` | Windows 10/11 (64-bit). Run as Administrator for SMART access. |
+          | `linux-x86_64.tar.gz` | Linux x86_64 (glibc 2.35+). Run with `sudo` for SMART access. |
+          | `macos-apple-silicon.tar.gz` | macOS on M-series Macs. Requires `smartctl` (`brew install smartmontools`). |
+          | `macos-intel.tar.gz` | macOS on Intel Macs. Requires `smartctl`. |
+
+          The binaries are not code-signed: Windows SmartScreen may ask you to confirm ("More info → Run anyway"), and on macOS run `xattr -d com.apple.quarantine smart-guardian` once after extracting.
+          Try it without hardware access: `smart-guardian --demo`. Verify downloads with `SHA256SUMS.txt`.
+          EOF
+          gh release create "$GITHUB_REF_NAME" dist/* --title "SMART Guardian $GITHUB_REF_NAME" --notes-file notes.md --generate-notes
