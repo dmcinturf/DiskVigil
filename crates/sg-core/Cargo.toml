@@ -1,0 +1,16 @@
+[package]
+name = "sg-core"
+description = "Drive health engine for SMART Guardian: ATA/SAT/NVMe access, SMART parsing, health scoring, history and alerts"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+anyhow = "1"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+chrono = { version = "0.4", default-features = false, features = ["clock", "serde", "std"] }
+
+[target.'cfg(unix)'.dependencies]
+libc = "0.2"
