@@ -106,6 +106,9 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
+      id-token: write          # Sigstore keyless signing
+      attestations: write
+      artifact-metadata: write
     steps:
       - uses: actions/checkout@v5
       - uses: actions/download-artifact@v5
@@ -113,6 +116,11 @@ jobs:
           path: dist
           pattern: diskvigil-*
           merge-multiple: true
+      # SLSA build provenance signed with Sigstore. Verify with: gh attestation verify <file> --repo dmcinturf/DiskVigil
+      - name: Attest build provenance
+        uses: actions/attest@v4
+        with:
+          subject-path: dist/diskvigil-*
       - name: Checksums
         run: cd dist && sha256sum * > SHA256SUMS.txt && cat SHA256SUMS.txt
       - name: Publish GitHub release
@@ -130,6 +138,8 @@ jobs:
           | `macos-intel.tar.gz` | macOS on Intel Macs. Requires `smartctl`. |
 
           The binaries are not code-signed: Windows SmartScreen may ask you to confirm ("More info → Run anyway"), and on macOS run `xattr -d com.apple.quarantine diskvigil` once after extracting.
-          Try it without hardware access: `diskvigil --demo`. Verify downloads with `SHA256SUMS.txt`.
+          Try it without hardware access: `diskvigil --demo`.
+
+          **Verify a download:** every package has a Sigstore-signed build provenance attestation proving it was built by this repository's GitHub Actions workflow. With the GitHub CLI: `gh attestation verify <package> --repo dmcinturf/DiskVigil`. Checksums are in `SHA256SUMS.txt`.
           EOF
           gh release create "$GITHUB_REF_NAME" dist/* --title "DiskVigil $GITHUB_REF_NAME" --notes-file notes.md --generate-notes

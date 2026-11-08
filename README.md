@@ -36,8 +36,20 @@ Get the latest portable build from the **[Releases page](https://github.com/dmci
 | `diskvigil-…-macos-intel.tar.gz` | macOS on Intel Macs |
 
 The binaries aren't code-signed. On Windows, SmartScreen may ask you to confirm (*More info → Run anyway*). On macOS,
-run `xattr -d com.apple.quarantine diskvigil` once after extracting. `SHA256SUMS.txt` lets you verify downloads.
+run `xattr -d com.apple.quarantine diskvigil` once after extracting.
 See the [code signing policy](#code-signing-policy) and [privacy](#privacy) sections.
+
+### Verifying downloads
+
+Every release package has a [build provenance attestation](https://docs.github.com/actions/security-for-github-actions/using-artifact-attestations)
+signed with [Sigstore](https://www.sigstore.dev/). It proves the file was built by this repository's GitHub Actions
+workflow from a specific commit and hasn't been modified since. With the [GitHub CLI](https://cli.github.com/):
+
+```
+gh attestation verify diskvigil-v0.1.0-windows-x86_64.zip --repo dmcinturf/DiskVigil
+```
+
+`SHA256SUMS.txt` in each release lists the checksums of all packages.
 
 ## Using it
 
