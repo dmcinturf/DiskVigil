@@ -47,6 +47,38 @@ jobs:
       - if: matrix.test
         run: cargo test --workspace --target ${{ matrix.target }}
       - run: cargo build --release --target ${{ matrix.target }}
+      # Windows code signing via SignPath (https://signpath.org). Runs only for release tags, and only once the
+      # repository variable SIGNPATH_ORGANIZATION_ID and the secret SIGNPATH_API_TOKEN are configured.
+      # Each request waits for manual approval in SignPath.
+      - name: Upload unsigned executable for signing
+        id: upload-unsigned
+        if: matrix.asset == 'windows-x86_64' && startsWith(github.ref, 'refs/tags/v') && vars.SIGNPATH_ORGANIZATION_ID != ''
+        uses: actions/upload-artifact@v5
+        with:
+          name: signpath-unsigned-exe
+          path: target/${{ matrix.target }}/release/${{ matrix.exe }}
+          if-no-files-found: error
+      - name: Sign with SignPath
+        if: steps.upload-unsigned.outcome == 'success'
+        uses: signpath/github-action-submit-signing-request@v3
+        with:
+          api-token: ${{ secrets.SIGNPATH_API_TOKEN }}
+          organization-id: ${{ vars.SIGNPATH_ORGANIZATION_ID }}
+          project-slug: ${{ vars.SIGNPATH_PROJECT_SLUG || 'DiskVigil' }}
+          signing-policy-slug: ${{ vars.SIGNPATH_SIGNING_POLICY_SLUG || 'release-signing' }}
+          github-artifact-id: ${{ steps.upload-unsigned.outputs.artifact-id }}
+          wait-for-completion: true
+          wait-for-completion-timeout-in-seconds: 14400
+          output-artifact-directory: signed
+      - name: Use signed executable
+        if: steps.upload-unsigned.outcome == 'success'
+        shell: pwsh
+        run: |
+          $exe = "target/${{ matrix.target }}/release/${{ matrix.exe }}"
+          Copy-Item "signed/${{ matrix.exe }}" $exe -Force
+          $sig = Get-AuthenticodeSignature $exe
+          "Signature: $($sig.Status) - $($sig.SignerCertificate.Subject)"
+          if ($sig.Status -ne 'Valid') { throw "Signed executable failed verification: $($sig.StatusMessage)" }
       - name: Package
         shell: bash
         run: |
@@ -79,6 +111,7 @@ jobs:
       - uses: actions/download-artifact@v5
         with:
           path: dist
+          pattern: diskvigil-*
           merge-multiple: true
       - name: Checksums
         run: cd dist && sha256sum * > SHA256SUMS.txt && cat SHA256SUMS.txt

@@ -37,6 +37,7 @@ Get the latest portable build from the **[Releases page](https://github.com/dmci
 
 The binaries aren't code-signed. On Windows, SmartScreen may ask you to confirm (*More info → Run anyway*). On macOS,
 run `xattr -d com.apple.quarantine diskvigil` once after extracting. `SHA256SUMS.txt` lets you verify downloads.
+See the [code signing policy](#code-signing-policy) and [privacy](#privacy) sections.
 
 ## Using it
 
@@ -139,6 +140,34 @@ crates/
 * Some USB-to-NVMe bridges and hardware RAID controllers need vendor-specific commands. Use the smartctl fallback.
 * SAS/SCSI drives report health status through smartctl only. There is no attribute table.
 * APM/AAM changes usually reset at the next power cycle.
+
+## Code signing policy
+
+Free code signing for Windows is provided by [SignPath.io](https://about.signpath.io/), with a certificate by the
+[SignPath Foundation](https://signpath.org/). *(Application pending: current releases are not yet signed.)*
+
+* Only executables built by this repository's GitHub Actions workflow from its own source code are signed.
+* Every signing request is approved manually by a project approver before a release is published.
+* Signed files carry the product name **DiskVigil** and the release version in their file properties.
+
+Team roles:
+
+| Role | Members |
+|---|---|
+| Committers and reviewers | [dmcinturf](https://github.com/dmcinturf) |
+| Approvers | [dmcinturf](https://github.com/dmcinturf) |
+
+All team members use multi-factor authentication for GitHub and SignPath.
+
+## Privacy
+
+DiskVigil does not collect telemetry and does not send any information to other networked systems unless you
+specifically configure it to. The only feature that can transmit data is the optional *Run command on alert* hook,
+which runs a command that you write yourself. Everything else (settings, history, alert log, reports) stays in the
+local data folder.
+
+DiskVigil can use [smartmontools](https://www.smartmontools.org/) (`smartctl`) if you install it. smartctl runs
+locally and doesn't send data anywhere.
 
 ## License
 

@@ -1475,11 +1475,25 @@ impl App {
             let (title, text) = match p {
                 Pending::SelfTest(info, kind) => (
                     "Start self-test",
-                    format!("Start a {} self-test on {}?\n\nThe drive stays usable but may be slower until the test finishes.", kind.label().to_lowercase(), info.display_name()),
+                    format!(
+                        "Start a {} self-test on {}?\n\n\
+                         • The drive runs the test internally. No data is written or erased.\n\
+                         • The drive stays usable but may be slower until the test finishes (an extended test can take hours).\n\
+                         • You can abort the test at any time from the Self-tests tab.",
+                        kind.label().to_lowercase(),
+                        info.display_name()
+                    ),
                 ),
                 Pending::Feature(info, _, what) => (
-                    "Change drive setting",
-                    format!("{what} on {}?\n\nThis sends a SET FEATURES command to the drive.", info.display_name()),
+                    "Change drive configuration",
+                    format!(
+                        "{what} on {}?\n\n\
+                         WARNING: this changes the drive's own configuration (ATA SET FEATURES).\n\
+                         • Aggressive power management (low APM levels) can cause frequent head parking and extra wear.\n\
+                         • The change usually resets at the next power cycle. To undo it sooner, set the previous level again.\n\
+                         • DiskVigil changes nothing else on your system.",
+                        info.display_name()
+                    ),
                 ),
             };
             let mut decision: Option<bool> = None;

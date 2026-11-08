@@ -18,3 +18,6 @@ serde_json = "1"
 chrono = { version = "0.4", default-features = false, features = ["clock", "serde", "std"] }
 clap = { version = "4.6", features = ["derive"] }
 eframe = "0.37"
+
+[build-dependencies]
+winresource = "0.1"
