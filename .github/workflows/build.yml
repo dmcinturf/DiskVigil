@@ -15,18 +15,23 @@ jobs:
           - os: windows-latest
             target: x86_64-pc-windows-msvc
             exe: smart-guardian.exe
+            test: true
           - os: ubuntu-22.04
             target: x86_64-unknown-linux-gnu
             exe: smart-guardian
-          - os: macos-14
+            test: true
+          - os: macos-latest
             target: aarch64-apple-darwin
             exe: smart-guardian
-          - os: macos-13
+            test: true
+          # Intel Macs: cross-compiled on the Apple Silicon runner (tests run on the native target only)
+          - os: macos-latest
             target: x86_64-apple-darwin
             exe: smart-guardian
+            test: false
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: dtolnay/rust-toolchain@stable
         with:
           targets: ${{ matrix.target }}
@@ -35,9 +40,10 @@ jobs:
         if: runner.os == 'Linux'
         run: sudo apt-get update && sudo apt-get install -y libxkbcommon-dev libgl1-mesa-dev libwayland-dev libx11-dev libxcursor-dev libxrandr-dev libxi-dev
       - run: cargo clippy --workspace --all-targets --target ${{ matrix.target }} -- -D warnings
-      - run: cargo test --workspace --target ${{ matrix.target }}
+      - if: matrix.test
+        run: cargo test --workspace --target ${{ matrix.target }}
       - run: cargo build --release --target ${{ matrix.target }}
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v5
         with:
           name: smart-guardian-${{ matrix.target }}
           path: target/${{ matrix.target }}/release/${{ matrix.exe }}
