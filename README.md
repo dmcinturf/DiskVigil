@@ -1,4 +1,4 @@
-# SMART Guardian
+# DiskVigil
 
 A portable, cross-platform health monitor for **hard disks, SATA SSDs and NVMe SSDs**, written in Rust.
 It is inspired by HDDGuardian, rebuilt from scratch with modern drives in mind.
@@ -7,7 +7,7 @@ It is inspired by HDDGuardian, rebuilt from scratch with modern drives in mind.
 
 ## Highlights
 
-| | HDDGuardian | SMART Guardian |
+| | HDDGuardian | DiskVigil |
 |---|---|---|
 | SATA / PATA hard disks | ✅ | ✅ native ATA pass-through |
 | USB enclosures | ✅ (SAT) | ✅ native SAT, plus smartctl fallback for exotic bridges |
@@ -26,32 +26,32 @@ It is inspired by HDDGuardian, rebuilt from scratch with modern drives in mind.
 
 ## Download
 
-Get the latest portable build from the **[Releases page](https://github.com/dmcinturf/SMART-Guardian/releases/latest)**:
+Get the latest portable build from the **[Releases page](https://github.com/dmcinturf/DiskVigil/releases/latest)**:
 
 | Package | System |
 |---|---|
-| `smart-guardian-…-windows-x86_64.zip` | Windows 10/11 (64-bit) |
-| `smart-guardian-…-linux-x86_64.tar.gz` | Linux x86_64 |
-| `smart-guardian-…-macos-apple-silicon.tar.gz` | macOS on M-series Macs |
-| `smart-guardian-…-macos-intel.tar.gz` | macOS on Intel Macs |
+| `diskvigil-…-windows-x86_64.zip` | Windows 10/11 (64-bit) |
+| `diskvigil-…-linux-x86_64.tar.gz` | Linux x86_64 |
+| `diskvigil-…-macos-apple-silicon.tar.gz` | macOS on M-series Macs |
+| `diskvigil-…-macos-intel.tar.gz` | macOS on Intel Macs |
 
 The binaries aren't code-signed. On Windows, SmartScreen may ask you to confirm (*More info → Run anyway*). On macOS,
-run `xattr -d com.apple.quarantine smart-guardian` once after extracting. `SHA256SUMS.txt` lets you verify downloads.
+run `xattr -d com.apple.quarantine diskvigil` once after extracting. `SHA256SUMS.txt` lets you verify downloads.
 
 ## Using it
 
-Extract the package (or build it yourself) and run `smart-guardian` (`smart-guardian.exe` on Windows). No installation is needed.
+Extract the package (or build it yourself) and run `diskvigil` (`diskvigil.exe` on Windows). No installation is needed.
 
 * **Windows:** run as Administrator, or use the *Restart as Administrator* button.
 * **Linux:** run with `sudo`, or use the *Restart with pkexec* button. Temperatures from hwmon work without root.
-* **macOS:** install smartmontools (`brew install smartmontools`) and run with `sudo`. SMART Guardian uses `smartctl` on macOS.
-* Want to look around first? `smart-guardian --demo` shows simulated drives, including a failing one.
+* **macOS:** install smartmontools (`brew install smartmontools`) and run with `sudo`. DiskVigil uses `smartctl` on macOS.
+* Want to look around first? `diskvigil --demo` shows simulated drives, including a failing one.
 
 ### Portable data
 
-Settings, history (`history/*.jsonl`), the alert log and reports live in a `SmartGuardianData` folder next to the
+Settings, history (`history/*.jsonl`), the alert log and reports live in a `DiskVigilData` folder next to the
 executable when that location is writable. Otherwise they go to the per-user data directory
-(`%LOCALAPPDATA%`, `~/.local/share`, `~/Library/Application Support`). Override this with `--data-dir` or `SG_DATA_DIR`.
+(`%LOCALAPPDATA%`, `~/.local/share`, `~/Library/Application Support`). Override this with `--data-dir` or `DV_DATA_DIR`.
 
 ### Optional: smartctl fallback
 
@@ -62,12 +62,12 @@ JMicron/Realtek USB-NVMe bridges, and Intel RST setups.
 ### Command line
 
 ```
-smart-guardian list [--json]
-smart-guardian info [DRIVE] [--json]          # DRIVE = index, device path, serial or part of the model
-smart-guardian check [--quiet]                # exit 0 OK, 1 warning, 2 critical/failed, 3 no drives
-smart-guardian report --format html|json|csv [--output FILE]
-smart-guardian monitor [--interval 300] [--once]
-smart-guardian selftest DRIVE short|extended|conveyance|abort
+diskvigil list [--json]
+diskvigil info [DRIVE] [--json]     # DRIVE = index, device path, serial or part of the model
+diskvigil check [--quiet]           # exit 0 OK, 1 warning, 2 critical/failed, 3 no drives
+diskvigil report --format html|json|csv [--output FILE]
+diskvigil monitor [--interval 300] [--once]
+diskvigil selftest DRIVE short|extended|conveyance|abort
 Global options: --backend auto|native|smartctl|demo, --demo, --data-dir DIR, --smartctl PATH
 ```
 
@@ -76,10 +76,10 @@ Global options: --backend auto|native|smartctl|demo, --demo, --data-dir DIR, --s
 ### Alert command hook
 
 Settings → *Run command on alert* runs any shell command, with these environment variables set:
-`SG_SEVERITY`, `SG_DRIVE`, `SG_MODEL`, `SG_SERIAL`, `SG_MESSAGE`, `SG_TIME`. For example:
+`DV_SEVERITY`, `DV_DRIVE`, `DV_MODEL`, `DV_SERIAL`, `DV_MESSAGE`, `DV_TIME`. For example:
 
 ```
-curl -d "$SG_MODEL: $SG_MESSAGE" ntfy.sh/my-disks
+curl -d "$DV_MODEL: $DV_MESSAGE" ntfy.sh/my-disks
 ```
 
 Alerts fire on **changes**, so a stable but degraded drive doesn't spam you. Triggers include new reallocated, pending or
@@ -117,7 +117,7 @@ Windows, Linux and macOS (Intel and Apple Silicon).
 
 ```
 crates/
-  sg-core/                 library: no GUI dependencies
+  dv-core/                 library: no GUI dependencies
     ata/                   ATA command set, IDENTIFY / SMART / self-test log decoding, SAT (SCSI ATA translation)
     nvme.rs                Identify Controller, SMART/Health log, self-test log decoding
     backend/windows.rs     IOCTL_ATA_PASS_THROUGH, IOCTL_SCSI_PASS_THROUGH (SAT), NVMe protocol queries
@@ -129,7 +129,7 @@ crates/
     alerts.rs              change-detection alert engine
     report.rs              HTML / JSON / CSV
     service.rs             scan → history → alerts pipeline shared by the GUI and `monitor`
-  smart-guardian/          the app: egui GUI + clap CLI in one portable binary
+  diskvigil/               the app: egui GUI + clap CLI in one portable binary
 ```
 
 ## Known limitations

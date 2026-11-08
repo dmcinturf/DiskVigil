@@ -13,7 +13,14 @@ mod win {
     }
     #[link(name = "shell32")]
     extern "system" {
-        pub fn ShellExecuteW(hwnd: *mut c_void, op: *const u16, file: *const u16, params: *const u16, dir: *const u16, show: i32) -> isize;
+        pub fn ShellExecuteW(
+            hwnd: *mut c_void,
+            op: *const u16,
+            file: *const u16,
+            params: *const u16,
+            dir: *const u16,
+            show: i32,
+        ) -> isize;
     }
 }
 
@@ -39,7 +46,16 @@ pub fn relaunch_elevated(extra_args: &[String]) -> Result<()> {
             .join(" ");
         let (op, file, par) = (wide("runas"), wide(&exe.to_string_lossy()), wide(&params));
         // SAFETY: all strings are valid NUL-terminated wide strings.
-        let r = unsafe { win::ShellExecuteW(std::ptr::null_mut(), op.as_ptr(), file.as_ptr(), par.as_ptr(), std::ptr::null(), 1) };
+        let r = unsafe {
+            win::ShellExecuteW(
+                std::ptr::null_mut(),
+                op.as_ptr(),
+                file.as_ptr(),
+                par.as_ptr(),
+                std::ptr::null(),
+                1,
+            )
+        };
         if r <= 32 {
             anyhow::bail!("elevation was cancelled or failed (code {r})");
         }
@@ -49,7 +65,12 @@ pub fn relaunch_elevated(extra_args: &[String]) -> Result<()> {
     {
         let mut cmd = Command::new("pkexec");
         cmd.arg("env");
-        for var in ["DISPLAY", "XAUTHORITY", "WAYLAND_DISPLAY", "XDG_RUNTIME_DIR"] {
+        for var in [
+            "DISPLAY",
+            "XAUTHORITY",
+            "WAYLAND_DISPLAY",
+            "XDG_RUNTIME_DIR",
+        ] {
             if let Ok(v) = std::env::var(var) {
                 cmd.arg(format!("{var}={v}"));
             }
@@ -61,7 +82,7 @@ pub fn relaunch_elevated(extra_args: &[String]) -> Result<()> {
     #[cfg(not(any(windows, target_os = "linux")))]
     {
         let _ = (exe, extra_args);
-        anyhow::bail!("run SMART Guardian with sudo to read SMART data");
+        anyhow::bail!("run DiskVigil with sudo to read SMART data");
     }
 }
 

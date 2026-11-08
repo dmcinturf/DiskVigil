@@ -65,13 +65,25 @@ impl DemoBackend {
     }
 
     #[allow(clippy::too_many_arguments)]
-    fn ata(&mut self, path: &str, model: &str, serial: &str, media: MediaType, capacity: u64, rpm: u32, attrs: Vec<DemoAttr>, tests: Vec<SelfTestEntry>) -> RawDrive {
+    fn ata(
+        &mut self,
+        path: &str,
+        model: &str,
+        serial: &str,
+        media: MediaType,
+        capacity: u64,
+        rpm: u32,
+        attrs: Vec<DemoAttr>,
+        tests: Vec<SelfTestEntry>,
+    ) -> RawDrive {
         let ssd = media.is_solid_state();
         let (status, mut extra, _) = self.test_status(path, if ssd { 2 } else { 20 });
         let apm = self.apm.get(path).copied().unwrap_or(Some(128));
         let attributes = attrs
             .into_iter()
-            .map(|DemoAttr(id, flags, v, w, t, raw)| make_attribute(id, flags, v, w, Some(t), raw48_bytes(raw), ssd, None))
+            .map(|DemoAttr(id, flags, v, w, t, raw)| {
+                make_attribute(id, flags, v, w, Some(t), raw48_bytes(raw), ssd, None)
+            })
             .collect();
         for e in &mut extra {
             e.lifetime_hours = 31_000;
@@ -307,7 +319,10 @@ impl DemoBackend {
             error_log_entries: 4,
             warning_temp_minutes: 0,
             critical_temp_minutes: 0,
-            sensor_temps_c: vec![(44.0 + self.wave(10.0, 5.0)) as i32, (52.0 + self.wave(10.0, 4.0)) as i32],
+            sensor_temps_c: vec![
+                (44.0 + self.wave(10.0, 5.0)) as i32,
+                (52.0 + self.wave(10.0, 4.0)) as i32,
+            ],
             thermal_throttle_events: 0,
             thermal_throttle_seconds: 0,
             current_test: cur,

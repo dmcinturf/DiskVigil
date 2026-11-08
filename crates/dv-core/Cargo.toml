@@ -1,6 +1,6 @@
 [package]
-name = "sg-core"
-description = "Drive health engine for SMART Guardian: ATA/SAT/NVMe access, SMART parsing, health scoring, history and alerts"
+name = "dv-core"
+description = "Drive health engine for DiskVigil: ATA/SAT/NVMe access, SMART parsing, health scoring, history and alerts"
 version.workspace = true
 edition.workspace = true
 license.workspace = true

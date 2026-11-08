@@ -156,6 +156,9 @@ mod tests {
 
     #[test]
     fn sanitize() {
-        assert_eq!(sanitize_filename("Samsung SSD 870 / S5Y"), "Samsung_SSD_870_S5Y");
+        assert_eq!(
+            sanitize_filename("Samsung SSD 870 / S5Y"),
+            "Samsung_SSD_870_S5Y"
+        );
     }
 }

@@ -1,11 +1,11 @@
 //! Command-line interface.
 
 use crate::{Command, FormatArg, TestArg};
-use sg_core::config::{Paths, Settings};
-use sg_core::report::{self, ReportFormat};
-use sg_core::service::Service;
-use sg_core::util::{format_bytes, format_hours, format_temp};
-use sg_core::*;
+use dv_core::config::{Paths, Settings};
+use dv_core::report::{self, ReportFormat};
+use dv_core::service::Service;
+use dv_core::util::{format_bytes, format_hours, format_temp};
+use dv_core::*;
 use std::time::Duration;
 
 pub fn run(cmd: Command, settings: Settings, paths: Paths) -> i32 {
@@ -46,14 +46,17 @@ pub fn run(cmd: Command, settings: Settings, paths: Paths) -> i32 {
                 Some(sel) => match find(&drives, sel) {
                     Some(d) => vec![d],
                     None => {
-                        eprintln!("No drive matches '{sel}'. Use `smart-guardian list` to see drives.");
+                        eprintln!("No drive matches '{sel}'. Use `diskvigil list` to see drives.");
                         return 2;
                     }
                 },
                 None => drives.iter().collect(),
             };
             if json {
-                println!("{}", serde_json::to_string_pretty(&selected).unwrap_or_default());
+                println!(
+                    "{}",
+                    serde_json::to_string_pretty(&selected).unwrap_or_default()
+                );
             } else {
                 for d in selected {
                     print_info(d, fahrenheit);
@@ -80,7 +83,12 @@ pub fn run(cmd: Command, settings: Settings, paths: Paths) -> i32 {
                 code = code.max(c as i32);
                 if !quiet {
                     let tag = ["OK", "WARN", "CRIT"][c];
-                    let top = d.health.issues.first().map(|i| i.message.as_str()).unwrap_or("");
+                    let top = d
+                        .health
+                        .issues
+                        .first()
+                        .map(|i| i.message.as_str())
+                        .unwrap_or("");
                     println!(
                         "[{tag:4}] {:<36} health {:>4}  {}",
                         trunc(&d.info.display_name(), 36),
@@ -102,7 +110,7 @@ pub fn run(cmd: Command, settings: Settings, paths: Paths) -> i32 {
             let path = output.unwrap_or_else(|| {
                 let _ = std::fs::create_dir_all(paths.reports_dir());
                 paths.reports_dir().join(format!(
-                    "smart-guardian-{}.{}",
+                    "diskvigil-{}.{}",
                     chrono::Local::now().format("%Y%m%d-%H%M%S"),
                     fmt.extension()
                 ))
@@ -120,7 +128,10 @@ pub fn run(cmd: Command, settings: Settings, paths: Paths) -> i32 {
         }
         Command::Monitor { interval, once } => {
             let secs = interval.unwrap_or(svc.settings.refresh_secs).max(5);
-            println!("SMART Guardian monitor – data in {} – interval {secs}s (Ctrl+C to stop)", paths.data_dir.display());
+            println!(
+                "DiskVigil monitor – data in {} – interval {secs}s (Ctrl+C to stop)",
+                paths.data_dir.display()
+            );
             loop {
                 let (drives, events) = svc.scan();
                 crate::notify::dispatch(&events, &svc.settings.alerts);
@@ -132,13 +143,20 @@ pub fn run(cmd: Command, settings: Settings, paths: Paths) -> i32 {
                             "{} {} {}",
                             trunc(&d.info.display_name(), 20),
                             pct(d.health.health),
-                            d.temperature_c.map(|t| format_temp(t, fahrenheit)).unwrap_or_default()
+                            d.temperature_c
+                                .map(|t| format_temp(t, fahrenheit))
+                                .unwrap_or_default()
                         )
                     })
                     .collect();
                 println!("[{now}] {}", summary.join(" | "));
                 for e in &events {
-                    println!("  ALERT [{}] {}: {}", e.severity.label(), e.drive_name, e.message);
+                    println!(
+                        "  ALERT [{}] {}: {}",
+                        e.severity.label(),
+                        e.drive_name,
+                        e.message
+                    );
                 }
                 print_errors(&svc);
                 if once {
@@ -166,7 +184,7 @@ pub fn run(cmd: Command, settings: Settings, paths: Paths) -> i32 {
                         println!("Self-test aborted on {}.", info.display_name());
                     } else {
                         println!(
-                            "{} self-test started on {}. Check progress with `smart-guardian info \"{}\"`.",
+                            "{} self-test started on {}. Check progress with `diskvigil info \"{}\"`.",
                             k.label(),
                             info.display_name(),
                             info.serial
@@ -187,10 +205,16 @@ fn print_errors(svc: &Service) {
     for e in svc.last_errors() {
         eprintln!("warning: {e}");
     }
-    if !sg_core::backend::is_elevated() && svc.settings.backend != sg_core::config::BackendMode::Demo {
+    if !dv_core::backend::is_elevated()
+        && svc.settings.backend != dv_core::config::BackendMode::Demo
+    {
         eprintln!(
             "note: not running {} – SMART data may be unavailable.",
-            if cfg!(windows) { "as Administrator" } else { "as root" }
+            if cfg!(windows) {
+                "as Administrator"
+            } else {
+                "as root"
+            }
         );
     }
 }
@@ -207,8 +231,17 @@ fn find<'a>(drives: &'a [DriveSnapshot], sel: &str) -> Option<&'a DriveSnapshot>
     }
     drives
         .iter()
-        .find(|d| d.info.path.eq_ignore_ascii_case(sel) || d.info.serial.eq_ignore_ascii_case(sel) || d.info.key() == sel)
-        .or_else(|| drives.iter().find(|d| d.info.model.to_lowercase().contains(&s) || d.info.serial.to_lowercase().contains(&s)))
+        .find(|d| {
+            d.info.path.eq_ignore_ascii_case(sel)
+                || d.info.serial.eq_ignore_ascii_case(sel)
+                || d.info.key() == sel
+        })
+        .or_else(|| {
+            drives.iter().find(|d| {
+                d.info.model.to_lowercase().contains(&s)
+                    || d.info.serial.to_lowercase().contains(&s)
+            })
+        })
 }
 
 fn pct(v: Option<u8>) -> String {
@@ -242,7 +275,9 @@ fn print_list(drives: &[DriveSnapshot], f: bool) {
             format_bytes(d.info.capacity_bytes),
             pct(d.health.health),
             pct(d.health.performance),
-            d.temperature_c.map(|t| format_temp(t, f)).unwrap_or_else(|| "–".into()),
+            d.temperature_c
+                .map(|t| format_temp(t, f))
+                .unwrap_or_else(|| "–".into()),
             d.health.status.label(),
             d.info.volumes.join(" ")
         );
@@ -279,7 +314,10 @@ fn print_info(d: &DriveSnapshot, f: bool) {
     }
     match &d.smart {
         SmartData::Ata(a) => {
-            println!("\n  {:>3} {:<34} {:>4} {:>5} {:>4} {:>18}  {:<8} {}", "ID", "Attribute", "Cur", "Worst", "Thr", "Raw", "Type", "Status");
+            println!(
+                "\n  {:>3} {:<34} {:>4} {:>5} {:>4} {:>18}  {:<8} {}",
+                "ID", "Attribute", "Cur", "Worst", "Thr", "Raw", "Type", "Status"
+            );
             for at in &a.attributes {
                 println!(
                     "  {:>3} {:<34} {:>4} {:>5} {:>4} {:>18}  {:<8} {}",
@@ -287,7 +325,9 @@ fn print_info(d: &DriveSnapshot, f: bool) {
                     trunc(&at.name, 34),
                     at.value,
                     at.worst,
-                    at.threshold.map(|t| t.to_string()).unwrap_or_else(|| "–".into()),
+                    at.threshold
+                        .map(|t| t.to_string())
+                        .unwrap_or_else(|| "–".into()),
                     trunc(&at.raw_display, 18),
                     if at.prefailure { "Pre-fail" } else { "Old-age" },
                     at.status.label()
@@ -310,8 +350,14 @@ fn print_info(d: &DriveSnapshot, f: bool) {
                 "    {:<22} {:<34} {:>8}  {}",
                 trunc(&e.kind, 22),
                 trunc(&e.status, 34),
-                format_hours(e.lifetime_hours).split(' ').take(2).collect::<Vec<_>>().join(" "),
-                e.failing_lba.map(|l| format!("LBA {l}")).unwrap_or_default()
+                format_hours(e.lifetime_hours)
+                    .split(' ')
+                    .take(2)
+                    .collect::<Vec<_>>()
+                    .join(" "),
+                e.failing_lba
+                    .map(|l| format!("LBA {l}"))
+                    .unwrap_or_default()
             );
         }
     }

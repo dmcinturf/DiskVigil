@@ -1,4 +1,4 @@
-//! SMART Guardian core library.
+//! DiskVigil core library.
 //!
 //! * [`backend`] talks to drives (native ATA / SAT / NVMe pass-through on Windows and
 //!   Linux, `smartctl` everywhere, and a demo backend).

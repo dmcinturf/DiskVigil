@@ -117,7 +117,10 @@ mod tests {
         assert_eq!(c[0], 0x85);
         assert_eq!(c[1], 0x08);
         assert_eq!(c[2], 0x0E);
-        assert_eq!((c[4], c[6], c[10], c[12], c[14]), (0xD0, 1, 0x4F, 0xC2, 0xB0));
+        assert_eq!(
+            (c[4], c[6], c[10], c[12], c[14]),
+            (0xD0, 1, 0x4F, 0xC2, 0xB0)
+        );
     }
 
     #[test]

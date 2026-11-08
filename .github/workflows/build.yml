@@ -14,23 +14,23 @@ jobs:
         include:
           - os: windows-latest
             target: x86_64-pc-windows-msvc
-            exe: smart-guardian.exe
+            exe: diskvigil.exe
             asset: windows-x86_64
             test: true
           - os: ubuntu-22.04
             target: x86_64-unknown-linux-gnu
-            exe: smart-guardian
+            exe: diskvigil
             asset: linux-x86_64
             test: true
           - os: macos-latest
             target: aarch64-apple-darwin
-            exe: smart-guardian
+            exe: diskvigil
             asset: macos-apple-silicon
             test: true
           # Intel Macs: cross-compiled on the Apple Silicon runner (tests run on the native target only)
           - os: macos-latest
             target: x86_64-apple-darwin
-            exe: smart-guardian
+            exe: diskvigil
             asset: macos-intel
             test: false
     runs-on: ${{ matrix.os }}
@@ -52,7 +52,7 @@ jobs:
         run: |
           version="${GITHUB_REF_NAME}"
           [[ "$GITHUB_REF" == refs/tags/v* ]] || version="dev-${GITHUB_SHA::7}"
-          name="smart-guardian-${version}-${{ matrix.asset }}"
+          name="diskvigil-${version}-${{ matrix.asset }}"
           mkdir -p "pkg/$name" dist
           cp "target/${{ matrix.target }}/release/${{ matrix.exe }}" README.md LICENSE "pkg/$name/"
           cd pkg
@@ -65,7 +65,7 @@ jobs:
           ls -l ../dist
       - uses: actions/upload-artifact@v5
         with:
-          name: smart-guardian-${{ matrix.asset }}
+          name: diskvigil-${{ matrix.asset }}
           path: dist/*
 
   release:
@@ -87,7 +87,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           cat > notes.md <<'EOF'
-          Portable builds of SMART Guardian. Download the package for your system, extract it and run `smart-guardian`. No installation needed.
+          Portable builds of DiskVigil. Download the package for your system, extract it and run `diskvigil`. No installation needed.
 
           | Package | System |
           |---|---|
@@ -96,7 +96,7 @@ jobs:
           | `macos-apple-silicon.tar.gz` | macOS on M-series Macs. Requires `smartctl` (`brew install smartmontools`). |
           | `macos-intel.tar.gz` | macOS on Intel Macs. Requires `smartctl`. |
 
-          The binaries are not code-signed: Windows SmartScreen may ask you to confirm ("More info → Run anyway"), and on macOS run `xattr -d com.apple.quarantine smart-guardian` once after extracting.
-          Try it without hardware access: `smart-guardian --demo`. Verify downloads with `SHA256SUMS.txt`.
+          The binaries are not code-signed: Windows SmartScreen may ask you to confirm ("More info → Run anyway"), and on macOS run `xattr -d com.apple.quarantine diskvigil` once after extracting.
+          Try it without hardware access: `diskvigil --demo`. Verify downloads with `SHA256SUMS.txt`.
           EOF
-          gh release create "$GITHUB_REF_NAME" dist/* --title "SMART Guardian $GITHUB_REF_NAME" --notes-file notes.md --generate-notes
+          gh release create "$GITHUB_REF_NAME" dist/* --title "DiskVigil $GITHUB_REF_NAME" --notes-file notes.md --generate-notes

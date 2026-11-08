@@ -4,7 +4,9 @@
 //! crosses a limit), so a degraded-but-stable drive does not spam notifications.
 
 use crate::config::AlertSettings;
-use crate::history::{tracked_name, HistoryPoint, CRITICAL_COUNTERS, NVME_CRIT_WARNING, NVME_MEDIA_ERRORS};
+use crate::history::{
+    tracked_name, HistoryPoint, CRITICAL_COUNTERS, NVME_CRIT_WARNING, NVME_MEDIA_ERRORS,
+};
 use crate::model::*;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -54,7 +56,12 @@ impl AlertEngine {
         st.failed_tests = usize::MAX; // unknown: set silently on first evaluation
     }
 
-    pub fn evaluate(&mut self, s: &DriveSnapshot, cfg: &AlertSettings, temp_limits: (i32, i32)) -> Vec<AlertEvent> {
+    pub fn evaluate(
+        &mut self,
+        s: &DriveSnapshot,
+        cfg: &AlertSettings,
+        temp_limits: (i32, i32),
+    ) -> Vec<AlertEvent> {
         let mut out = Vec::new();
         if !cfg.enabled {
             return out;
@@ -82,7 +89,10 @@ impl AlertEngine {
         let failed = s.health.status == HealthStatus::Failed
             || matches!(&s.smart, SmartData::Ata(a) if a.overall_passed == Some(false));
         if failed && !st.smart_failed {
-            push(Severity::Critical, "Drive reports a SMART failure – back up your data immediately".into());
+            push(
+                Severity::Critical,
+                "Drive reports a SMART failure – back up your data immediately".into(),
+            );
         }
         st.smart_failed = failed;
 
@@ -114,29 +124,56 @@ impl AlertEngine {
                     } else {
                         Severity::Warning
                     };
-                    push(sev, format!("{} increased from {old} to {new} (+{})", tracked_name(id), new - old));
+                    push(
+                        sev,
+                        format!(
+                            "{} increased from {old} to {new} (+{})",
+                            tracked_name(id),
+                            new - old
+                        ),
+                    );
                 }
             }
             if let (Some(&old), Some(&new)) = (st.attrs.get(&199), point.attrs.get(&199)) {
                 if new > old {
-                    push(Severity::Info, format!("Interface CRC errors increased by {} – check the cable", new - old));
+                    push(
+                        Severity::Info,
+                        format!(
+                            "Interface CRC errors increased by {} – check the cable",
+                            new - old
+                        ),
+                    );
                 }
             }
         } else {
             // First sighting: report existing serious conditions once.
             if !failed && matches!(s.health.status, HealthStatus::Critical | HealthStatus::Poor) {
-                push(s.health.status.severity(), format!("Drive health is {} ({}%)", s.health.status.label(), s.health.health.unwrap_or(0)));
+                push(
+                    s.health.status.severity(),
+                    format!(
+                        "Drive health is {} ({}%)",
+                        s.health.status.label(),
+                        s.health.health.unwrap_or(0)
+                    ),
+                );
             }
         }
 
         if let Some(life) = s.life_remaining_pct {
             if life <= cfg.life_warn_pct && !st.life_warned {
-                push(Severity::Warning, format!("SSD remaining life is down to {life}%"));
+                push(
+                    Severity::Warning,
+                    format!("SSD remaining life is down to {life}%"),
+                );
                 st.life_warned = true;
             }
         }
 
-        let failed_tests = s.self_test_log().iter().filter(|e| e.passed == Some(false)).count();
+        let failed_tests = s
+            .self_test_log()
+            .iter()
+            .filter(|e| e.passed == Some(false))
+            .count();
         if st.initialized && st.failed_tests != usize::MAX && failed_tests > st.failed_tests {
             push(Severity::Critical, "A drive self-test has failed".into());
         }
@@ -173,9 +210,15 @@ fn temp_check(
     };
     if level > st.temp_level {
         if level == 2 {
-            push(Severity::Critical, format!("Temperature {t} °C reached the critical limit ({crit} °C)"));
+            push(
+                Severity::Critical,
+                format!("Temperature {t} °C reached the critical limit ({crit} °C)"),
+            );
         } else {
-            push(Severity::Warning, format!("Temperature {t} °C exceeds the warning limit ({warn} °C)"));
+            push(
+                Severity::Warning,
+                format!("Temperature {t} °C exceeds the warning limit ({warn} °C)"),
+            );
         }
     }
     st.temp_level = level;
@@ -185,7 +228,11 @@ pub fn append_log(path: &Path, events: &[AlertEvent]) {
     if events.is_empty() {
         return;
     }
-    if let Ok(mut f) = std::fs::OpenOptions::new().create(true).append(true).open(path) {
+    if let Ok(mut f) = std::fs::OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open(path)
+    {
         for e in events {
             if let Ok(line) = serde_json::to_string(e) {
                 let _ = writeln!(f, "{line}");
@@ -198,7 +245,10 @@ pub fn load_log(path: &Path, max: usize) -> Vec<AlertEvent> {
     let Ok(text) = std::fs::read_to_string(path) else {
         return Vec::new();
     };
-    let mut v: Vec<AlertEvent> = text.lines().filter_map(|l| serde_json::from_str(l).ok()).collect();
+    let mut v: Vec<AlertEvent> = text
+        .lines()
+        .filter_map(|l| serde_json::from_str(l).ok())
+        .collect();
     if v.len() > max {
         v.drain(..v.len() - max);
     }
@@ -213,7 +263,16 @@ mod tests {
 
     fn snap(realloc: u64, temp: u64) -> DriveSnapshot {
         let attrs = vec![
-            make_attribute(5, 0x33, 100, 100, Some(36), raw48_bytes(realloc), false, None),
+            make_attribute(
+                5,
+                0x33,
+                100,
+                100,
+                Some(36),
+                raw48_bytes(realloc),
+                false,
+                None,
+            ),
             make_attribute(194, 0x22, 100, 100, Some(0), raw48_bytes(temp), false, None),
         ];
         let info = DriveInfo {
@@ -242,8 +301,14 @@ mod tests {
         assert!(e.evaluate(&snap(0, 35), &cfg, (50, 60)).is_empty());
         assert!(e.evaluate(&snap(0, 35), &cfg, (50, 60)).is_empty());
         let ev = e.evaluate(&snap(4, 35), &cfg, (50, 60));
-        assert!(ev.iter().any(|a| a.message.contains("Reallocated")), "{ev:?}");
-        assert!(ev.iter().any(|a| a.message.contains("Health dropped")), "{ev:?}");
+        assert!(
+            ev.iter().any(|a| a.message.contains("Reallocated")),
+            "{ev:?}"
+        );
+        assert!(
+            ev.iter().any(|a| a.message.contains("Health dropped")),
+            "{ev:?}"
+        );
         assert!(e.evaluate(&snap(4, 35), &cfg, (50, 60)).is_empty());
         let ev = e.evaluate(&snap(4, 52), &cfg, (50, 60));
         assert_eq!(ev.len(), 1);

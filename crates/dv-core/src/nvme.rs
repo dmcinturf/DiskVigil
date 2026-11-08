@@ -116,7 +116,9 @@ pub fn parse_smart_log(b: &[u8]) -> NvmeHealth {
     h.error_log_entries = le128_sat(b, 176);
     h.warning_temp_minutes = le32(b, 192);
     h.critical_temp_minutes = le32(b, 196);
-    h.sensor_temps_c = (0..8).filter_map(|i| kelvin(le16(b, 200 + i * 2))).collect();
+    h.sensor_temps_c = (0..8)
+        .filter_map(|i| kelvin(le16(b, 200 + i * 2)))
+        .collect();
     h.thermal_throttle_events = le32(b, 216).saturating_add(le32(b, 220));
     h.thermal_throttle_seconds = le32(b, 224).saturating_add(le32(b, 228));
     h

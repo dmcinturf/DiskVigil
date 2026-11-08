@@ -1,5 +1,5 @@
 ﻿[package]
-name = "smart-guardian"
+name = "diskvigil"
 description = "Portable, cross-platform HDD / SSD / NVMe health monitor"
 version.workspace = true
 edition.workspace = true
@@ -7,11 +7,11 @@ license.workspace = true
 rust-version.workspace = true
 
 [[bin]]
-name = "smart-guardian"
+name = "diskvigil"
 path = "src/main.rs"
 
 [dependencies]
-sg-core = { path = "../sg-core" }
+dv-core = { path = "../dv-core" }
 anyhow = "1"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"

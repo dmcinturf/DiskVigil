@@ -82,7 +82,8 @@ impl Drop for Fd {
 }
 
 fn open_dev(path: &str, flags: i32) -> io::Result<Fd> {
-    let c = CString::new(path).map_err(|_| io::Error::new(io::ErrorKind::InvalidInput, "bad path"))?;
+    let c =
+        CString::new(path).map_err(|_| io::Error::new(io::ErrorKind::InvalidInput, "bad path"))?;
     // SAFETY: valid NUL-terminated path.
     let fd = unsafe { libc::open(c.as_ptr(), flags | libc::O_NONBLOCK | libc::O_CLOEXEC) };
     if fd < 0 {
@@ -106,12 +107,20 @@ impl AtaTransport for SgSat<'_> {
         let mut buf = [0u8; 512];
         let mut hdr = SgIoHdr {
             interface_id: b'S' as i32,
-            dxfer_direction: if data_in { SG_DXFER_FROM_DEV } else { SG_DXFER_NONE },
+            dxfer_direction: if data_in {
+                SG_DXFER_FROM_DEV
+            } else {
+                SG_DXFER_NONE
+            },
             cmd_len: 16,
             mx_sb_len: sense.len() as u8,
             iovec_count: 0,
             dxfer_len: if data_in { 512 } else { 0 },
-            dxferp: if data_in { buf.as_mut_ptr() as *mut c_void } else { std::ptr::null_mut() },
+            dxferp: if data_in {
+                buf.as_mut_ptr() as *mut c_void
+            } else {
+                std::ptr::null_mut()
+            },
             cmdp: cdb.as_mut_ptr(),
             sbp: sense.as_mut_ptr(),
             timeout: 15_000,
@@ -134,9 +143,15 @@ impl AtaTransport for SgSat<'_> {
             return Err(io::Error::last_os_error());
         }
         if hdr.host_status != 0 {
-            return Err(io::Error::other(format!("SG_IO host status 0x{:X}", hdr.host_status)));
+            return Err(io::Error::other(format!(
+                "SG_IO host status 0x{:X}",
+                hdr.host_status
+            )));
         }
-        let regs = sat::interpret(hdr.status, &sense[..(hdr.sb_len_wr as usize).max(8).min(sense.len())])?;
+        let regs = sat::interpret(
+            hdr.status,
+            &sense[..(hdr.sb_len_wr as usize).max(8).min(sense.len())],
+        )?;
         if let Some(d) = data {
             d.copy_from_slice(&buf);
         }
@@ -144,7 +159,13 @@ impl AtaTransport for SgSat<'_> {
     }
 }
 
-fn nvme_admin(fd: &Fd, opcode: u8, nsid: u32, cdw10: u32, buf: Option<&mut [u8]>) -> io::Result<()> {
+fn nvme_admin(
+    fd: &Fd,
+    opcode: u8,
+    nsid: u32,
+    cdw10: u32,
+    buf: Option<&mut [u8]>,
+) -> io::Result<()> {
     let mut cmd = NvmeAdminCmd {
         opcode,
         nsid,
@@ -156,11 +177,23 @@ fn nvme_admin(fd: &Fd, opcode: u8, nsid: u32, cdw10: u32, buf: Option<&mut [u8]>
         cmd.addr = b.as_mut_ptr() as u64;
         cmd.data_len = b.len() as u32;
         // SAFETY: cmd points at a buffer valid for data_len bytes.
-        let rc = unsafe { libc::ioctl(fd.0, NVME_IOCTL_ADMIN_CMD as _, &mut cmd as *mut NvmeAdminCmd) };
+        let rc = unsafe {
+            libc::ioctl(
+                fd.0,
+                NVME_IOCTL_ADMIN_CMD as _,
+                &mut cmd as *mut NvmeAdminCmd,
+            )
+        };
         return check_nvme_rc(rc);
     }
     // SAFETY: no data buffer.
-    let rc = unsafe { libc::ioctl(fd.0, NVME_IOCTL_ADMIN_CMD as _, &mut cmd as *mut NvmeAdminCmd) };
+    let rc = unsafe {
+        libc::ioctl(
+            fd.0,
+            NVME_IOCTL_ADMIN_CMD as _,
+            &mut cmd as *mut NvmeAdminCmd,
+        )
+    };
     check_nvme_rc(rc)
 }
 
@@ -177,23 +210,36 @@ fn check_nvme_rc(rc: i32) -> io::Result<()> {
 fn nvme_get_log(fd: &Fd, log: u8, len: usize) -> io::Result<Vec<u8>> {
     let mut b = vec![0u8; len];
     let numd = (len / 4 - 1) as u32;
-    nvme_admin(fd, 0x02, 0xFFFF_FFFF, (numd << 16) | log as u32, Some(&mut b))?;
+    nvme_admin(
+        fd,
+        0x02,
+        0xFFFF_FFFF,
+        (numd << 16) | log as u32,
+        Some(&mut b),
+    )?;
     Ok(b)
 }
 
 fn read_sys(p: &Path) -> Option<String> {
-    fs::read_to_string(p).ok().map(|s| s.trim().to_string()).filter(|s| !s.is_empty())
+    fs::read_to_string(p)
+        .ok()
+        .map(|s| s.trim().to_string())
+        .filter(|s| !s.is_empty())
 }
 
 fn hwmon_temp(dev_dir: &Path) -> Option<i32> {
     for base in [dev_dir.to_path_buf(), dev_dir.join("hwmon")] {
-        let Ok(rd) = fs::read_dir(&base) else { continue };
+        let Ok(rd) = fs::read_dir(&base) else {
+            continue;
+        };
         for e in rd.flatten() {
             let name = e.file_name();
             if !name.to_string_lossy().starts_with("hwmon") {
                 continue;
             }
-            if let Some(v) = read_sys(&e.path().join("temp1_input")).and_then(|s| s.parse::<i32>().ok()) {
+            if let Some(v) =
+                read_sys(&e.path().join("temp1_input")).and_then(|s| s.parse::<i32>().ok())
+            {
                 let c = v / 1000;
                 if (1..=125).contains(&c) {
                     return Some(c);
@@ -206,11 +252,17 @@ fn hwmon_temp(dev_dir: &Path) -> Option<i32> {
 
 fn mount_map(names: &[String]) -> HashMap<String, Vec<String>> {
     let mut map: HashMap<String, Vec<String>> = HashMap::new();
-    let Ok(text) = fs::read_to_string("/proc/mounts") else { return map };
+    let Ok(text) = fs::read_to_string("/proc/mounts") else {
+        return map;
+    };
     for line in text.lines() {
         let mut it = line.split_whitespace();
-        let (Some(dev), Some(mnt)) = (it.next(), it.next()) else { continue };
-        let Some(base) = dev.strip_prefix("/dev/") else { continue };
+        let (Some(dev), Some(mnt)) = (it.next(), it.next()) else {
+            continue;
+        };
+        let Some(base) = dev.strip_prefix("/dev/") else {
+            continue;
+        };
         for n in names {
             if let Some(rest) = base.strip_prefix(n.as_str()) {
                 let rest = rest.strip_prefix('p').unwrap_or(rest);
@@ -244,10 +296,16 @@ impl LinuxBackend {
 
     fn block_devices() -> Vec<String> {
         let mut v: Vec<String> = fs::read_dir("/sys/block")
-            .map(|rd| rd.flatten().map(|e| e.file_name().to_string_lossy().to_string()).collect())
+            .map(|rd| {
+                rd.flatten()
+                    .map(|e| e.file_name().to_string_lossy().to_string())
+                    .collect()
+            })
             .unwrap_or_default();
         v.retain(|n| {
-            let skip = ["loop", "ram", "zram", "dm-", "md", "sr", "fd", "nbd", "zd", "rbd"];
+            let skip = [
+                "loop", "ram", "zram", "dm-", "md", "sr", "fd", "nbd", "zd", "rbd",
+            ];
             !skip.iter().any(|p| n.starts_with(p)) && !(n.starts_with("nvme") && n.contains('c'))
         });
         v.sort();
@@ -273,8 +331,14 @@ impl LinuxBackend {
         match nvme_get_log(&fd, nvme::LOG_SMART, 512) {
             Ok(log) => {
                 let mut h = nvme::parse_smart_log(&log);
-                if raw.info.nvme.as_ref().is_some_and(|n| n.self_test_supported) {
-                    if let Ok(st) = nvme_get_log(&fd, nvme::LOG_SELF_TEST, nvme::SELF_TEST_LOG_LEN) {
+                if raw
+                    .info
+                    .nvme
+                    .as_ref()
+                    .is_some_and(|n| n.self_test_supported)
+                {
+                    if let Ok(st) = nvme_get_log(&fd, nvme::LOG_SELF_TEST, nvme::SELF_TEST_LOG_LEN)
+                    {
                         let (cur, pct, entries) = nvme::parse_selftest_log(&st);
                         h.current_test = cur;
                         h.current_test_pct = pct;
@@ -293,7 +357,9 @@ impl LinuxBackend {
     }
 
     fn read_ata(raw: &mut RawDrive) {
-        let fd = match open_dev(&raw.info.path, libc::O_RDWR).or_else(|_| open_dev(&raw.info.path, libc::O_RDONLY)) {
+        let fd = match open_dev(&raw.info.path, libc::O_RDWR)
+            .or_else(|_| open_dev(&raw.info.path, libc::O_RDONLY))
+        {
             Ok(f) => f,
             Err(e) => {
                 raw.smart = SmartData::Unavailable {
@@ -311,7 +377,9 @@ impl LinuxBackend {
             }
             Err(e) => {
                 raw.smart = SmartData::Unavailable {
-                    reason: if e.raw_os_error() == Some(libc::EPERM) || e.raw_os_error() == Some(libc::EACCES) {
+                    reason: if e.raw_os_error() == Some(libc::EPERM)
+                        || e.raw_os_error() == Some(libc::EACCES)
+                    {
                         permission_reason(&raw.info.path, &e)
                     } else {
                         format!("SMART not accessible via SAT: {e}")
@@ -330,7 +398,9 @@ impl Default for LinuxBackend {
 
 fn permission_reason(path: &str, e: &io::Error) -> String {
     match e.raw_os_error() {
-        Some(libc::EACCES) | Some(libc::EPERM) => format!("root privileges are required to read SMART data from {path} (run with sudo)"),
+        Some(libc::EACCES) | Some(libc::EPERM) => {
+            format!("root privileges are required to read SMART data from {path} (run with sudo)")
+        }
         _ => format!("cannot access {path}: {e}"),
     }
 }
@@ -342,12 +412,16 @@ impl NativeBackend for LinuxBackend {
         let mut out = Vec::new();
         for (idx, name) in names.iter().enumerate() {
             let sys = PathBuf::from("/sys/block").join(name);
-            let sectors: u64 = read_sys(&sys.join("size")).and_then(|s| s.parse().ok()).unwrap_or(0);
+            let sectors: u64 = read_sys(&sys.join("size"))
+                .and_then(|s| s.parse().ok())
+                .unwrap_or(0);
             if sectors == 0 {
                 continue;
             }
             let dev_dir = sys.join("device");
-            let real = fs::canonicalize(&sys).map(|p| p.to_string_lossy().to_string()).unwrap_or_default();
+            let real = fs::canonicalize(&sys)
+                .map(|p| p.to_string_lossy().to_string())
+                .unwrap_or_default();
             let is_nvme = name.starts_with("nvme");
             let bus = if is_nvme {
                 BusType::Nvme
@@ -368,7 +442,9 @@ impl NativeBackend for LinuxBackend {
                 index: Some(idx as u32),
                 model: read_sys(&dev_dir.join("model")).unwrap_or_default(),
                 serial: read_sys(&dev_dir.join("serial")).unwrap_or_default(),
-                firmware: read_sys(&dev_dir.join("firmware_rev")).or_else(|| read_sys(&dev_dir.join("rev"))).unwrap_or_default(),
+                firmware: read_sys(&dev_dir.join("firmware_rev"))
+                    .or_else(|| read_sys(&dev_dir.join("rev")))
+                    .unwrap_or_default(),
                 vendor: read_sys(&dev_dir.join("vendor")).filter(|v| v != "ATA"),
                 capacity_bytes: sectors * 512,
                 media: if is_nvme {
@@ -404,12 +480,15 @@ impl NativeBackend for LinuxBackend {
         if info.bus == BusType::Nvme {
             let name = info.path.trim_start_matches("/dev/");
             let ctrl = format!("/dev/{}", nvme_controller(name));
-            let fd = open_dev(&ctrl, libc::O_RDONLY).map_err(|e| anyhow!(permission_reason(&ctrl, &e)))?;
-            let code = nvme::self_test_code(kind).ok_or_else(|| anyhow!("NVMe drives have no conveyance self-test"))?;
+            let fd = open_dev(&ctrl, libc::O_RDONLY)
+                .map_err(|e| anyhow!(permission_reason(&ctrl, &e)))?;
+            let code = nvme::self_test_code(kind)
+                .ok_or_else(|| anyhow!("NVMe drives have no conveyance self-test"))?;
             nvme_admin(&fd, 0x14, 0xFFFF_FFFF, code, None)?;
             return Ok(());
         }
-        let fd = open_dev(&info.path, libc::O_RDWR).map_err(|e| anyhow!(permission_reason(&info.path, &e)))?;
+        let fd = open_dev(&info.path, libc::O_RDWR)
+            .map_err(|e| anyhow!(permission_reason(&info.path, &e)))?;
         let mut t = SgSat(&fd);
         ata::smart_execute_offline(&mut t, ata::self_test_code(kind))?;
         Ok(())
@@ -419,7 +498,8 @@ impl NativeBackend for LinuxBackend {
         if info.bus == BusType::Nvme {
             bail!("APM/AAM are ATA features and do not apply to NVMe drives");
         }
-        let fd = open_dev(&info.path, libc::O_RDWR).map_err(|e| anyhow!(permission_reason(&info.path, &e)))?;
+        let fd = open_dev(&info.path, libc::O_RDWR)
+            .map_err(|e| anyhow!(permission_reason(&info.path, &e)))?;
         let mut t = SgSat(&fd);
         ata::apply_feature(&mut t, change)?;
         Ok(())

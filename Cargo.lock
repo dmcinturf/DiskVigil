@@ -822,6 +822,19 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f27ae1dd37df86211c42e150270f82743308803d90a6f6e6651cd730d5e1732f"
 
 [[package]]
+name = "diskvigil"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "chrono",
+ "clap",
+ "dv-core",
+ "eframe",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "dispatch"
 version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -877,6 +890,17 @@ name = "dpi"
 version = "0.1.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d8b14ccef22fc6f5a8f4d7d768562a182c04ce9a3b3157b91390b52ddfdf1a76"
+
+[[package]]
+name = "dv-core"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "chrono",
+ "libc",
+ "serde",
+ "serde_json",
+]
 
 [[package]]
 name = "ecolor"
@@ -3013,17 +3037,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "sg-core"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "chrono",
- "libc",
- "serde",
- "serde_json",
-]
-
-[[package]]
 name = "shlex"
 version = "2.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3097,19 +3110,6 @@ name = "smallvec"
 version = "1.16.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "149309498a5f7334b12ddae0cad8aba81ce785fe91755068867e017cf98fee46"
-
-[[package]]
-name = "smart-guardian"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "chrono",
- "clap",
- "eframe",
- "serde",
- "serde_json",
- "sg-core",
-]
 
 [[package]]
 name = "smithay-client-toolkit"

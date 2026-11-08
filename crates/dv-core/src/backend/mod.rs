@@ -120,7 +120,7 @@ impl Engine {
                     Ok(v) => raws = v,
                     Err(e) => self.last_errors.push(format!("smartctl: {e:#}")),
                 },
-                None => self.last_errors.push("smartctl was not found (put smartctl next to SMART Guardian or install smartmontools)".into()),
+                None => self.last_errors.push("smartctl was not found (put smartctl next to DiskVigil or install smartmontools)".into()),
             },
             BackendMode::Native | BackendMode::Auto => {
                 if let Some(n) = &mut self.native {
@@ -166,9 +166,16 @@ impl Engine {
 
     pub fn self_test(&mut self, info: &DriveInfo, kind: SelfTestKind) -> Result<()> {
         match info.backend.as_str() {
-            "demo" => self.demo.as_mut().ok_or_else(|| anyhow!("demo backend not active"))?.self_test(info, kind),
+            "demo" => self
+                .demo
+                .as_mut()
+                .ok_or_else(|| anyhow!("demo backend not active"))?
+                .self_test(info, kind),
             "smartctl" => {
-                let sc = self.smartctl.as_ref().ok_or_else(|| anyhow!("smartctl not available"))?;
+                let sc = self
+                    .smartctl
+                    .as_ref()
+                    .ok_or_else(|| anyhow!("smartctl not available"))?;
                 sc.self_test(info, kind)
             }
             _ => match &mut self.native {
@@ -180,7 +187,11 @@ impl Engine {
 
     pub fn set_feature(&mut self, info: &DriveInfo, change: FeatureChange) -> Result<()> {
         match info.backend.as_str() {
-            "demo" => self.demo.as_mut().ok_or_else(|| anyhow!("demo backend not active"))?.set_feature(info, change),
+            "demo" => self
+                .demo
+                .as_mut()
+                .ok_or_else(|| anyhow!("demo backend not active"))?
+                .set_feature(info, change),
             "native" => match &mut self.native {
                 Some(n) => n.set_feature(info, change),
                 None => bail!("no native backend available"),

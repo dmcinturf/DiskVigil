@@ -43,8 +43,8 @@ pub struct TempLimit {
 pub struct AlertSettings {
     pub enabled: bool,
     pub desktop_notifications: bool,
-    /// Shell command run for every alert. Receives SG_SEVERITY, SG_DRIVE, SG_MODEL,
-    /// SG_SERIAL, SG_MESSAGE and SG_TIME environment variables.
+    /// Shell command run for every alert. Receives DV_SEVERITY, DV_DRIVE, DV_MODEL,
+    /// DV_SERIAL, DV_MESSAGE and DV_TIME environment variables.
     pub command: String,
     /// Alert when health drops by at least this many points.
     pub health_drop: u8,
@@ -102,18 +102,21 @@ pub struct Paths {
 }
 
 impl Paths {
-    /// Resolution order: explicit dir, `SG_DATA_DIR`, `<exe dir>/SmartGuardianData`
+    /// Resolution order: explicit dir, `DV_DATA_DIR`, `<exe dir>/DiskVigilData`
     /// when writable (portable mode), then the per-user data directory.
     pub fn resolve(explicit: Option<PathBuf>) -> Paths {
-        if let Some(p) = explicit.or_else(|| std::env::var_os("SG_DATA_DIR").map(PathBuf::from)) {
+        if let Some(p) = explicit.or_else(|| std::env::var_os("DV_DATA_DIR").map(PathBuf::from)) {
             let _ = std::fs::create_dir_all(&p);
             return Paths {
                 data_dir: p,
                 portable: false,
             };
         }
-        if let Some(dir) = std::env::current_exe().ok().and_then(|e| e.parent().map(Path::to_path_buf)) {
-            let p = dir.join("SmartGuardianData");
+        if let Some(dir) = std::env::current_exe()
+            .ok()
+            .and_then(|e| e.parent().map(Path::to_path_buf))
+        {
+            let p = dir.join("DiskVigilData");
             if is_writable_dir(&p) {
                 return Paths {
                     data_dir: p,
@@ -121,7 +124,7 @@ impl Paths {
                 };
             }
         }
-        let p = user_data_dir().join("SmartGuardian");
+        let p = user_data_dir().join("DiskVigil");
         let _ = std::fs::create_dir_all(&p);
         Paths {
             data_dir: p,
@@ -156,7 +159,9 @@ fn is_writable_dir(p: &Path) -> bool {
 fn user_data_dir() -> PathBuf {
     let env = |k: &str| std::env::var_os(k).map(PathBuf::from);
     if cfg!(windows) {
-        env("LOCALAPPDATA").or_else(|| env("APPDATA")).unwrap_or_else(std::env::temp_dir)
+        env("LOCALAPPDATA")
+            .or_else(|| env("APPDATA"))
+            .unwrap_or_else(std::env::temp_dir)
     } else if cfg!(target_os = "macos") {
         env("HOME")
             .map(|h| h.join("Library/Application Support"))

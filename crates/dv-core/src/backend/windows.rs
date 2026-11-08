@@ -53,8 +53,25 @@ const ERROR_ACCESS_DENIED: i32 = 5;
 
 #[link(name = "kernel32")]
 extern "system" {
-    fn CreateFileW(name: *const u16, access: u32, share: u32, sa: *mut c_void, disposition: u32, flags: u32, template: Handle) -> Handle;
-    fn DeviceIoControl(h: Handle, code: u32, inbuf: *mut c_void, inlen: u32, outbuf: *mut c_void, outlen: u32, returned: *mut u32, overlapped: *mut c_void) -> i32;
+    fn CreateFileW(
+        name: *const u16,
+        access: u32,
+        share: u32,
+        sa: *mut c_void,
+        disposition: u32,
+        flags: u32,
+        template: Handle,
+    ) -> Handle;
+    fn DeviceIoControl(
+        h: Handle,
+        code: u32,
+        inbuf: *mut c_void,
+        inlen: u32,
+        outbuf: *mut c_void,
+        outlen: u32,
+        returned: *mut u32,
+        overlapped: *mut c_void,
+    ) -> i32;
     fn CloseHandle(h: Handle) -> i32;
     fn GetLogicalDrives() -> u32;
 }
@@ -84,7 +101,17 @@ impl Device {
     fn open(path: &str, access: u32) -> io::Result<Device> {
         let w: Vec<u16> = path.encode_utf16().chain(Some(0)).collect();
         // SAFETY: `w` is a valid NUL-terminated wide string for the duration of the call.
-        let h = unsafe { CreateFileW(w.as_ptr(), access, FILE_SHARE_READ | FILE_SHARE_WRITE, null_mut(), OPEN_EXISTING, 0, null_mut()) };
+        let h = unsafe {
+            CreateFileW(
+                w.as_ptr(),
+                access,
+                FILE_SHARE_READ | FILE_SHARE_WRITE,
+                null_mut(),
+                OPEN_EXISTING,
+                0,
+                null_mut(),
+            )
+        };
         if h == INVALID_HANDLE_VALUE {
             Err(io::Error::last_os_error())
         } else {
@@ -94,9 +121,25 @@ impl Device {
 
     /// # Safety
     /// `inp`/`out` must be valid for `in_len`/`out_len` bytes (they may alias).
-    unsafe fn ioctl_raw(&self, code: u32, inp: *mut c_void, in_len: usize, out: *mut c_void, out_len: usize) -> io::Result<u32> {
+    unsafe fn ioctl_raw(
+        &self,
+        code: u32,
+        inp: *mut c_void,
+        in_len: usize,
+        out: *mut c_void,
+        out_len: usize,
+    ) -> io::Result<u32> {
         let mut ret = 0u32;
-        let ok = DeviceIoControl(self.0, code, inp, in_len as u32, out, out_len as u32, &mut ret, null_mut());
+        let ok = DeviceIoControl(
+            self.0,
+            code,
+            inp,
+            in_len as u32,
+            out,
+            out_len as u32,
+            &mut ret,
+            null_mut(),
+        );
         if ok == 0 {
             Err(io::Error::last_os_error())
         } else {
@@ -116,7 +159,15 @@ impl Device {
         put_u32(&mut q, 0, prop);
         let mut out = vec![0u8; out_len];
         // SAFETY: `q` and `out` are valid for the given lengths.
-        let n = unsafe { self.ioctl_raw(IOCTL_STORAGE_QUERY_PROPERTY, q.as_mut_ptr() as _, q.len(), out.as_mut_ptr() as _, out.len())? };
+        let n = unsafe {
+            self.ioctl_raw(
+                IOCTL_STORAGE_QUERY_PROPERTY,
+                q.as_mut_ptr() as _,
+                q.len(),
+                out.as_mut_ptr() as _,
+                out.len(),
+            )?
+        };
         out.truncate(n as usize);
         Ok(out)
     }
@@ -159,11 +210,14 @@ impl AtaTransport for WinAta<'_> {
         // SAFETY: plain-old-data struct, all-zero is a valid value.
         let mut b: AtaPtBuf = unsafe { zeroed() };
         b.apt.length = size_of::<AtaPassThroughEx>() as u16;
-        b.apt.ata_flags = ATA_FLAGS_DRDY_REQUIRED | if data.is_some() { ATA_FLAGS_DATA_IN } else { 0 };
+        b.apt.ata_flags =
+            ATA_FLAGS_DRDY_REQUIRED | if data.is_some() { ATA_FLAGS_DATA_IN } else { 0 };
         b.apt.data_transfer_length = if data.is_some() { 512 } else { 0 };
         b.apt.timeout_value = 15;
         b.apt.data_buffer_offset = offset_of!(AtaPtBuf, data);
-        b.apt.current_task_file = [r.features, r.count, r.lba_low, r.lba_mid, r.lba_high, r.device, r.command, 0];
+        b.apt.current_task_file = [
+            r.features, r.count, r.lba_low, r.lba_mid, r.lba_high, r.device, r.command, 0,
+        ];
         let size = size_of::<AtaPtBuf>();
         let p = &mut b as *mut AtaPtBuf as *mut c_void;
         // SAFETY: `b` is valid for `size` bytes; in and out buffers alias as allowed.
@@ -235,7 +289,10 @@ impl AtaTransport for WinSat<'_> {
         let size = size_of::<SptBuf>();
         let p = &mut b as *mut SptBuf as *mut c_void;
         // SAFETY: `b` is valid for `size` bytes; in and out buffers alias as allowed.
-        unsafe { self.0.ioctl_raw(IOCTL_SCSI_PASS_THROUGH, p, size, p, size)? };
+        unsafe {
+            self.0
+                .ioctl_raw(IOCTL_SCSI_PASS_THROUGH, p, size, p, size)?
+        };
         let regs = sat::interpret(b.spt.scsi_status, &b.sense)?;
         if let Some(d) = data {
             d.copy_from_slice(&b.data);
@@ -248,7 +305,14 @@ impl AtaTransport for WinSat<'_> {
 // NVMe (stornvme protocol-specific property queries)
 // ----------------------------------------------------------------------------------
 
-fn nvme_query(dev: &Device, prop: u32, data_type: u32, value: u32, sub: u32, len: usize) -> io::Result<Vec<u8>> {
+fn nvme_query(
+    dev: &Device,
+    prop: u32,
+    data_type: u32,
+    value: u32,
+    sub: u32,
+    len: usize,
+) -> io::Result<Vec<u8>> {
     const PSD: usize = 40; // sizeof(STORAGE_PROTOCOL_SPECIFIC_DATA)
     let mut buf = vec![0u8; 8 + PSD + len];
     put_u32(&mut buf, 0, prop);
@@ -275,8 +339,15 @@ fn nvme_query(dev: &Device, prop: u32, data_type: u32, value: u32, sub: u32, len
 }
 
 fn nvme_query_any(dev: &Device, data_type: u32, value: u32, len: usize) -> io::Result<Vec<u8>> {
-    nvme_query(dev, PROP_ADAPTER_PROTOCOL_SPECIFIC, data_type, value, 0, len)
-        .or_else(|_| nvme_query(dev, PROP_DEVICE_PROTOCOL_SPECIFIC, data_type, value, 0, len))
+    nvme_query(
+        dev,
+        PROP_ADAPTER_PROTOCOL_SPECIFIC,
+        data_type,
+        value,
+        0,
+        len,
+    )
+    .or_else(|_| nvme_query(dev, PROP_DEVICE_PROTOCOL_SPECIFIC, data_type, value, 0, len))
 }
 
 // ----------------------------------------------------------------------------------
@@ -310,13 +381,27 @@ fn volume_map() -> HashMap<u32, Vec<String>> {
             continue;
         }
         let letter = (b'A' + i as u8) as char;
-        let Ok(dev) = Device::open(&format!(r"\\.\{letter}:"), 0) else { continue };
+        let Ok(dev) = Device::open(&format!(r"\\.\{letter}:"), 0) else {
+            continue;
+        };
         let mut out = [0u8; 12];
         // SAFETY: `out` is valid for 12 bytes, no input buffer.
-        if unsafe { dev.ioctl_raw(IOCTL_STORAGE_GET_DEVICE_NUMBER, null_mut(), 0, out.as_mut_ptr() as _, out.len()) }.is_ok() {
+        if unsafe {
+            dev.ioctl_raw(
+                IOCTL_STORAGE_GET_DEVICE_NUMBER,
+                null_mut(),
+                0,
+                out.as_mut_ptr() as _,
+                out.len(),
+            )
+        }
+        .is_ok()
+        {
             let dev_type = le32(&out, 0);
             if dev_type == 7 {
-                map.entry(le32(&out, 4)).or_default().push(format!("{letter}:"));
+                map.entry(le32(&out, 4))
+                    .or_default()
+                    .push(format!("{letter}:"));
             }
         }
     }
@@ -340,7 +425,10 @@ impl WindowsBackend {
     }
 
     fn read_ata(dev: &Device, raw: &mut RawDrive) {
-        let sat_first = matches!(raw.info.bus, BusType::Usb | BusType::Scsi | BusType::Sas | BusType::Raid);
+        let sat_first = matches!(
+            raw.info.bus,
+            BusType::Usb | BusType::Scsi | BusType::Sas | BusType::Raid
+        );
         let mut errors = Vec::new();
         for use_sat in [sat_first, !sat_first] {
             let mut ata_t = WinAta(dev);
@@ -370,7 +458,12 @@ impl WindowsBackend {
         match nvme_query_any(dev, NVME_DATA_TYPE_LOG_PAGE, nvme::LOG_SMART as u32, 512) {
             Ok(log) => {
                 let mut h = nvme::parse_smart_log(&log);
-                if let Ok(st) = nvme_query_any(dev, NVME_DATA_TYPE_LOG_PAGE, nvme::LOG_SELF_TEST as u32, nvme::SELF_TEST_LOG_LEN) {
+                if let Ok(st) = nvme_query_any(
+                    dev,
+                    NVME_DATA_TYPE_LOG_PAGE,
+                    nvme::LOG_SELF_TEST as u32,
+                    nvme::SELF_TEST_LOG_LEN,
+                ) {
                     let (cur, pct, entries) = nvme::parse_selftest_log(&st);
                     h.current_test = cur;
                     h.current_test_pct = pct;
@@ -399,7 +492,11 @@ impl WindowsBackend {
     }
 
     fn ata_transport<'a>(info: &DriveInfo, dev: &'a Device) -> Box<dyn AtaTransport + 'a> {
-        if info.transport.as_deref().is_some_and(|t| t.starts_with("SAT")) {
+        if info
+            .transport
+            .as_deref()
+            .is_some_and(|t| t.starts_with("SAT"))
+        {
             Box::new(WinSat(dev))
         } else {
             Box::new(WinAta(dev))
@@ -419,7 +516,9 @@ impl NativeBackend for WindowsBackend {
         let mut out = Vec::new();
         for i in 0..64u32 {
             let path = format!(r"\\.\PhysicalDrive{i}");
-            let Ok(dev) = Device::open(&path, 0) else { continue };
+            let Ok(dev) = Device::open(&path, 0) else {
+                continue;
+            };
             let mut info = DriveInfo {
                 path: path.clone(),
                 index: Some(i),
@@ -455,7 +554,17 @@ impl NativeBackend for WindowsBackend {
             }
             let mut geo = [0u8; 256];
             // SAFETY: `geo` valid for 256 bytes; no input buffer.
-            if unsafe { dev.ioctl_raw(IOCTL_DISK_GET_DRIVE_GEOMETRY_EX, null_mut(), 0, geo.as_mut_ptr() as _, geo.len()) }.is_ok() {
+            if unsafe {
+                dev.ioctl_raw(
+                    IOCTL_DISK_GET_DRIVE_GEOMETRY_EX,
+                    null_mut(),
+                    0,
+                    geo.as_mut_ptr() as _,
+                    geo.len(),
+                )
+            }
+            .is_ok()
+            {
                 info.capacity_bytes = le64(&geo, 24);
             }
             info.media = if info.bus == BusType::Nvme {

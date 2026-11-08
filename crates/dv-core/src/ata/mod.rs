@@ -241,21 +241,24 @@ pub fn parse_identify(b: &[u8; 512]) -> Identify {
 
     let w80 = w(80);
     let ata_version = if valid(w80) {
-        (4..=15u32).rev().find(|bit| w80 & (1 << bit) != 0).map(|bit| {
-            match bit {
-                4 => "ATA/ATAPI-4",
-                5 => "ATA/ATAPI-5",
-                6 => "ATA/ATAPI-6",
-                7 => "ATA/ATAPI-7",
-                8 => "ATA8-ACS",
-                9 => "ACS-2",
-                10 => "ACS-3",
-                11 => "ACS-4",
-                12 => "ACS-5",
-                _ => "ACS-x",
-            }
-            .to_string()
-        })
+        (4..=15u32)
+            .rev()
+            .find(|bit| w80 & (1 << bit) != 0)
+            .map(|bit| {
+                match bit {
+                    4 => "ATA/ATAPI-4",
+                    5 => "ATA/ATAPI-5",
+                    6 => "ATA/ATAPI-6",
+                    7 => "ATA/ATAPI-7",
+                    8 => "ATA8-ACS",
+                    9 => "ACS-2",
+                    10 => "ACS-3",
+                    11 => "ACS-4",
+                    12 => "ACS-5",
+                    _ => "ACS-x",
+                }
+                .to_string()
+            })
     } else {
         None
     };
@@ -285,10 +288,18 @@ pub fn parse_identify(b: &[u8; 512]) -> Identify {
         write_cache_enabled: w85 & (1 << 5) != 0,
         apm_supported: w83 & (1 << 3) != 0,
         apm_enabled,
-        apm_level: if apm_enabled { Some((w(91) & 0xFF) as u8) } else { None },
+        apm_level: if apm_enabled {
+            Some((w(91) & 0xFF) as u8)
+        } else {
+            None
+        },
         aam_supported: w83 & (1 << 9) != 0,
         aam_enabled,
-        aam_level: if aam_enabled { Some((w(94) & 0xFF) as u8) } else { None },
+        aam_level: if aam_enabled {
+            Some((w(94) & 0xFF) as u8)
+        } else {
+            None
+        },
         security_supported: w(128) & 1 != 0 && valid(w(128)),
         security_enabled: w(128) & 2 != 0 && valid(w(128)),
         self_test_supported: w84_valid && w84 & (1 << 1) != 0,
@@ -532,7 +543,11 @@ pub fn parse_selftest_log(b: &[u8; 512]) -> Vec<SelfTestEntry> {
                 3..=8 => Some(false),
                 _ => None,
             },
-            remaining_pct: if code == 0xF { Some((e[1] & 0xF) * 10) } else { None },
+            remaining_pct: if code == 0xF {
+                Some((e[1] & 0xF) * 10)
+            } else {
+                None
+            },
             lifetime_hours: le16(e, 2) as u64,
             failing_lba: if failed && lba != 0xFFFF_FFFF && lba != 0 {
                 Some(lba)
@@ -624,7 +639,15 @@ pub fn read_all(
 mod tests {
     use super::*;
 
-    fn put_attr(buf: &mut [u8; 512], slot: usize, id: u8, flags: u16, val: u8, worst: u8, raw: u64) {
+    fn put_attr(
+        buf: &mut [u8; 512],
+        slot: usize,
+        id: u8,
+        flags: u16,
+        val: u8,
+        worst: u8,
+        raw: u64,
+    ) {
         let o = 2 + slot * 12;
         buf[o] = id;
         buf[o + 1..o + 3].copy_from_slice(&flags.to_le_bytes());
@@ -663,7 +686,9 @@ mod tests {
     #[test]
     fn parses_identify() {
         let mut b = [0u8; 512];
-        let set = |b: &mut [u8; 512], w: usize, v: u16| b[w * 2..w * 2 + 2].copy_from_slice(&v.to_le_bytes());
+        let set = |b: &mut [u8; 512], w: usize, v: u16| {
+            b[w * 2..w * 2 + 2].copy_from_slice(&v.to_le_bytes())
+        };
         let model = b"WDC WD40EFRX-68N32N0                    ";
         for (i, pair) in model.chunks(2).enumerate() {
             b[54 + i * 2] = pair[1];

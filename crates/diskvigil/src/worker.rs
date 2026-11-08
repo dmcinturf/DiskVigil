@@ -1,13 +1,13 @@
 //! Background scanner thread for the GUI.
 
 use chrono::{DateTime, Local};
+use dv_core::alerts::{self, AlertEvent};
+use dv_core::ata::FeatureChange;
+use dv_core::config::{Paths, Settings};
+use dv_core::history::HistoryStore;
+use dv_core::service::Service;
+use dv_core::{DriveInfo, DriveSnapshot, SelfTestKind};
 use eframe::egui;
-use sg_core::alerts::{self, AlertEvent};
-use sg_core::ata::FeatureChange;
-use sg_core::config::{Paths, Settings};
-use sg_core::history::HistoryStore;
-use sg_core::service::Service;
-use sg_core::{DriveInfo, DriveSnapshot, SelfTestKind};
 use std::sync::mpsc::{channel, RecvTimeoutError, Sender};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
@@ -63,9 +63,18 @@ impl Worker {
                         Ok(Cmd::Refresh) | Err(RecvTimeoutError::Timeout) => {}
                         Ok(Cmd::SelfTest(info, kind)) => {
                             let msg = match svc.self_test(&info, kind) {
-                                Ok(()) if kind == SelfTestKind::Abort => format!("Self-test aborted on {}", info.display_name()),
-                                Ok(()) => format!("{} self-test started on {}", kind.label(), info.display_name()),
-                                Err(e) => format!("Self-test failed to start on {}: {e:#}", info.display_name()),
+                                Ok(()) if kind == SelfTestKind::Abort => {
+                                    format!("Self-test aborted on {}", info.display_name())
+                                }
+                                Ok(()) => format!(
+                                    "{} self-test started on {}",
+                                    kind.label(),
+                                    info.display_name()
+                                ),
+                                Err(e) => format!(
+                                    "Self-test failed to start on {}: {e:#}",
+                                    info.display_name()
+                                ),
                             };
                             push_msg(&sh, msg);
                             std::thread::sleep(Duration::from_millis(500));
@@ -73,7 +82,10 @@ impl Worker {
                         Ok(Cmd::Feature(info, change)) => {
                             let msg = match svc.set_feature(&info, change) {
                                 Ok(()) => format!("Setting applied to {}", info.display_name()),
-                                Err(e) => format!("Could not change setting on {}: {e:#}", info.display_name()),
+                                Err(e) => format!(
+                                    "Could not change setting on {}: {e:#}",
+                                    info.display_name()
+                                ),
                             };
                             push_msg(&sh, msg);
                         }
@@ -92,7 +104,9 @@ impl Worker {
                     ctx.request_repaint();
                     let (drives, events) = svc.scan();
                     crate::notify::dispatch(&events, &svc.settings.alerts);
-                    let testing = drives.iter().any(|d| d.self_test_progress.as_ref().is_some_and(|p| p.running));
+                    let testing = drives
+                        .iter()
+                        .any(|d| d.self_test_progress.as_ref().is_some_and(|p| p.running));
                     if let Ok(mut g) = sh.lock() {
                         g.drives = drives;
                         g.unseen_alerts += events.len();
@@ -107,12 +121,20 @@ impl Worker {
                         g.scanned_once = true;
                     }
                     ctx.request_repaint();
-                    let secs = if testing { 10 } else { svc.settings.refresh_secs.max(5) };
+                    let secs = if testing {
+                        10
+                    } else {
+                        svc.settings.refresh_secs.max(5)
+                    };
                     next = Instant::now() + Duration::from_secs(secs);
                 }
             })
             .expect("failed to start scanner thread");
-        Worker { tx, shared, history }
+        Worker {
+            tx,
+            shared,
+            history,
+        }
     }
 
     pub fn send(&self, cmd: Cmd) {

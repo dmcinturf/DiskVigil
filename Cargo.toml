@@ -1,13 +1,13 @@
 [workspace]
 resolver = "2"
-members = ["crates/sg-core", "crates/smart-guardian"]
+members = ["crates/dv-core", "crates/diskvigil"]
 
 [workspace.package]
 version = "0.1.0"
 edition = "2021"
 license = "MIT"
 rust-version = "1.80"
-authors = ["SMART Guardian contributors"]
+authors = ["DiskVigil contributors"]
 
 [profile.release]
 opt-level = 3

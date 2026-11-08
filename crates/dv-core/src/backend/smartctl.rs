@@ -29,12 +29,19 @@ pub fn device_name_for(info: &DriveInfo) -> String {
 
 impl Smartctl {
     pub fn locate(override_path: Option<&str>) -> Option<Self> {
-        let exe_name = if cfg!(windows) { "smartctl.exe" } else { "smartctl" };
+        let exe_name = if cfg!(windows) {
+            "smartctl.exe"
+        } else {
+            "smartctl"
+        };
         let mut candidates: Vec<PathBuf> = Vec::new();
         if let Some(p) = override_path.filter(|p| !p.trim().is_empty()) {
             candidates.push(PathBuf::from(p));
         }
-        if let Some(dir) = std::env::current_exe().ok().and_then(|e| e.parent().map(Path::to_path_buf)) {
+        if let Some(dir) = std::env::current_exe()
+            .ok()
+            .and_then(|e| e.parent().map(Path::to_path_buf))
+        {
             candidates.push(dir.join(exe_name));
             candidates.push(dir.join("smartmontools").join(exe_name));
             candidates.push(dir.join("smartmontools").join("bin").join(exe_name));
@@ -47,15 +54,31 @@ impl Smartctl {
         if cfg!(windows) {
             for base in ["ProgramFiles", "ProgramFiles(x86)"] {
                 if let Some(pf) = std::env::var_os(base) {
-                    candidates.push(PathBuf::from(pf).join("smartmontools").join("bin").join(exe_name));
+                    candidates.push(
+                        PathBuf::from(pf)
+                            .join("smartmontools")
+                            .join("bin")
+                            .join(exe_name),
+                    );
                 }
             }
         } else {
-            for d in ["/usr/sbin", "/usr/local/sbin", "/usr/bin", "/usr/local/bin", "/opt/homebrew/bin", "/opt/homebrew/sbin", "/opt/local/sbin"] {
+            for d in [
+                "/usr/sbin",
+                "/usr/local/sbin",
+                "/usr/bin",
+                "/usr/local/bin",
+                "/opt/homebrew/bin",
+                "/opt/homebrew/sbin",
+                "/opt/local/sbin",
+            ] {
                 candidates.push(PathBuf::from(d).join(exe_name));
             }
         }
-        candidates.into_iter().find(|p| p.is_file()).map(|exe| Smartctl { exe })
+        candidates
+            .into_iter()
+            .find(|p| p.is_file())
+            .map(|exe| Smartctl { exe })
     }
 
     fn run(&self, args: &[&str]) -> Result<Value> {
@@ -66,7 +89,9 @@ impl Smartctl {
             use std::os::windows::process::CommandExt;
             cmd.creation_flags(0x0800_0000); // CREATE_NO_WINDOW
         }
-        let out = cmd.output().with_context(|| format!("running {}", self.exe.display()))?;
+        let out = cmd
+            .output()
+            .with_context(|| format!("running {}", self.exe.display()))?;
         // smartctl's exit status is a bit mask of drive conditions; rely on the JSON.
         let v: Value = serde_json::from_slice(&out.stdout).map_err(|e| {
             anyhow!(
@@ -91,7 +116,9 @@ impl Smartctl {
         let v = self.run(&["--scan-open", "-j"])?;
         let mut out = Vec::new();
         for d in v["devices"].as_array().cloned().unwrap_or_default() {
-            let Some(name) = d["name"].as_str() else { continue };
+            let Some(name) = d["name"].as_str() else {
+                continue;
+            };
             let dtype = d["type"].as_str();
             match self.read(name, dtype) {
                 Ok(r) => out.push(r),
@@ -104,7 +131,9 @@ impl Smartctl {
                         smartctl_type: dtype.map(str::to_string),
                         ..Default::default()
                     });
-                    r.smart = SmartData::Unavailable { reason: format!("{e:#}") };
+                    r.smart = SmartData::Unavailable {
+                        reason: format!("{e:#}"),
+                    };
                     out.push(r);
                 }
             }
@@ -143,8 +172,16 @@ impl Smartctl {
         args.push(&dev);
         let v = self.run(&args)?;
         if let Some(msgs) = v["smartctl"]["messages"].as_array() {
-            if let Some(err) = msgs.iter().find(|m| m["severity"].as_str() == Some("error")) {
-                bail!("{}", err["string"].as_str().unwrap_or("self-test failed to start"));
+            if let Some(err) = msgs
+                .iter()
+                .find(|m| m["severity"].as_str() == Some("error"))
+            {
+                bail!(
+                    "{}",
+                    err["string"]
+                        .as_str()
+                        .unwrap_or("self-test failed to start")
+                );
             }
         }
         Ok(())
@@ -161,7 +198,13 @@ fn bus_from_type(dtype: &str, protocol: &str) -> BusType {
         BusType::Nvme
     } else if t.starts_with("usb") || t.starts_with("snt") {
         BusType::Usb
-    } else if t.starts_with("megaraid") || t.starts_with("areca") || t.starts_with("cciss") || t.starts_with("3ware") || t.starts_with("csmi") || t.starts_with("aacraid") {
+    } else if t.starts_with("megaraid")
+        || t.starts_with("areca")
+        || t.starts_with("cciss")
+        || t.starts_with("3ware")
+        || t.starts_with("csmi")
+        || t.starts_with("aacraid")
+    {
         BusType::Raid
     } else if t == "ata" || t == "sat" || protocol == "ATA" {
         BusType::Sata
@@ -179,9 +222,19 @@ pub fn parse_device(v: &Value, name: &str, dtype: Option<&str>) -> RawDrive {
     let rotation = v["rotation_rate"].as_u64();
     let mut info = DriveInfo {
         path: name.to_string(),
-        model: v["model_name"].as_str().or(v["scsi_model_name"].as_str()).unwrap_or("").trim().to_string(),
+        model: v["model_name"]
+            .as_str()
+            .or(v["scsi_model_name"].as_str())
+            .unwrap_or("")
+            .trim()
+            .to_string(),
         serial: v["serial_number"].as_str().unwrap_or("").trim().to_string(),
-        firmware: v["firmware_version"].as_str().or(v["scsi_revision"].as_str()).unwrap_or("").trim().to_string(),
+        firmware: v["firmware_version"]
+            .as_str()
+            .or(v["scsi_revision"].as_str())
+            .unwrap_or("")
+            .trim()
+            .to_string(),
         vendor: v["scsi_vendor"].as_str().map(str::to_string),
         capacity_bytes: u(&v["user_capacity"]["bytes"]),
         bus: bus_from_type(&actual_type, protocol),
@@ -189,7 +242,10 @@ pub fn parse_device(v: &Value, name: &str, dtype: Option<&str>) -> RawDrive {
         smart_supported: v["smart_support"]["available"].as_bool(),
         smart_enabled: v["smart_support"]["enabled"].as_bool(),
         backend: "smartctl".into(),
-        transport: Some(format!("smartctl ({})", dev["info_name"].as_str().unwrap_or(name))),
+        transport: Some(format!(
+            "smartctl ({})",
+            dev["info_name"].as_str().unwrap_or(name)
+        )),
         smartctl_device: Some(name.to_string()),
         smartctl_type: (!actual_type.is_empty()).then(|| actual_type.clone()),
         ..Default::default()
@@ -230,15 +286,26 @@ pub fn parse_device(v: &Value, name: &str, dtype: Option<&str>) -> RawDrive {
                 critical_temp_minutes: u(&l["critical_comp_time"]) as u32,
                 sensor_temps_c: l["temperature_sensors"]
                     .as_array()
-                    .map(|a| a.iter().filter_map(|x| x.as_i64().map(|t| t as i32)).collect())
+                    .map(|a| {
+                        a.iter()
+                            .filter_map(|x| x.as_i64().map(|t| t as i32))
+                            .collect()
+                    })
                     .unwrap_or_default(),
                 thermal_throttle_events: 0,
                 thermal_throttle_seconds: 0,
                 current_test: st["current_self_test_operation"]["value"]
                     .as_u64()
                     .filter(|&c| c != 0)
-                    .map(|_| st["current_self_test_operation"]["string"].as_str().unwrap_or("Self-test").to_string()),
-                current_test_pct: st["current_self_test_completion_percent"].as_u64().map(|p| p as u8),
+                    .map(|_| {
+                        st["current_self_test_operation"]["string"]
+                            .as_str()
+                            .unwrap_or("Self-test")
+                            .to_string()
+                    }),
+                current_test_pct: st["current_self_test_completion_percent"]
+                    .as_u64()
+                    .map(|p| p as u8),
                 self_test_log: st["table"]
                     .as_array()
                     .map(|t| {
@@ -246,8 +313,14 @@ pub fn parse_device(v: &Value, name: &str, dtype: Option<&str>) -> RawDrive {
                             .map(|e| {
                                 let res = u(&e["self_test_result"]["value"]);
                                 SelfTestEntry {
-                                    kind: e["self_test_code"]["string"].as_str().unwrap_or("?").to_string(),
-                                    status: e["self_test_result"]["string"].as_str().unwrap_or("?").to_string(),
+                                    kind: e["self_test_code"]["string"]
+                                        .as_str()
+                                        .unwrap_or("?")
+                                        .to_string(),
+                                    status: e["self_test_result"]["string"]
+                                        .as_str()
+                                        .unwrap_or("?")
+                                        .to_string(),
                                     passed: match res {
                                         0 => Some(true),
                                         5..=7 => Some(false),
@@ -266,9 +339,15 @@ pub fn parse_device(v: &Value, name: &str, dtype: Option<&str>) -> RawDrive {
                 version: v["nvme_version"]["string"].as_str().map(str::to_string),
                 pci_vendor_id: u(&v["nvme_pci_vendor"]["id"]) as u16,
                 namespaces: u(&v["nvme_number_of_namespaces"]) as u32,
-                warning_temp_c: v["nvme_warning_composite_temperature"].as_i64().map(|t| t as i32),
-                critical_temp_c: v["nvme_critical_composite_temperature"].as_i64().map(|t| t as i32),
-                self_test_supported: v["nvme_optional_admin_commands"]["self_test"].as_bool().unwrap_or(false),
+                warning_temp_c: v["nvme_warning_composite_temperature"]
+                    .as_i64()
+                    .map(|t| t as i32),
+                critical_temp_c: v["nvme_critical_composite_temperature"]
+                    .as_i64()
+                    .map(|t| t as i32),
+                self_test_supported: v["nvme_optional_admin_commands"]["self_test"]
+                    .as_bool()
+                    .unwrap_or(false),
                 extended_test_minutes: None,
             });
             raw.info.smart_supported = Some(true);
@@ -314,19 +393,33 @@ pub fn parse_device(v: &Value, name: &str, dtype: Option<&str>) -> RawDrive {
     let polling = &d["self_test"]["polling_minutes"];
     let nz = |x: &Value| x.as_u64().filter(|&m| m > 0).map(|m| m as u16);
     let st_value = u(&d["self_test"]["status"]["value"]) as u8;
-    let st_rem = d["self_test"]["status"]["remaining_percent"].as_u64().unwrap_or(0) as u8;
+    let st_rem = d["self_test"]["status"]["remaining_percent"]
+        .as_u64()
+        .unwrap_or(0) as u8;
     let smart = AtaSmart {
         attributes,
         overall_passed: v["smart_status"]["passed"].as_bool(),
         offline_status: u(&d["offline_data_collection"]["status"]["value"]) as u8,
-        self_test_status: if st_value >> 4 == 0xF { 0xF0 | (st_rem / 10) } else { st_value },
+        self_test_status: if st_value >> 4 == 0xF {
+            0xF0 | (st_rem / 10)
+        } else {
+            st_value
+        },
         short_test_minutes: nz(&polling["short"]),
         extended_test_minutes: nz(&polling["extended"]),
         conveyance_test_minutes: nz(&polling["conveyance"]),
-        self_test_supported: d["capabilities"]["self_tests_supported"].as_bool().unwrap_or(false),
-        conveyance_supported: d["capabilities"]["conveyance_self_test_supported"].as_bool().unwrap_or(false),
-        error_logging: d["capabilities"]["error_logging_supported"].as_bool().unwrap_or(false),
-        error_count: v["ata_smart_error_log"]["summary"]["count"].as_u64().map(|c| c as u32),
+        self_test_supported: d["capabilities"]["self_tests_supported"]
+            .as_bool()
+            .unwrap_or(false),
+        conveyance_supported: d["capabilities"]["conveyance_self_test_supported"]
+            .as_bool()
+            .unwrap_or(false),
+        error_logging: d["capabilities"]["error_logging_supported"]
+            .as_bool()
+            .unwrap_or(false),
+        error_count: v["ata_smart_error_log"]["summary"]["count"]
+            .as_u64()
+            .map(|c| c as u32),
         self_test_log: v["ata_smart_self_test_log"]["standard"]["table"]
             .as_array()
             .map(|t| {
@@ -384,7 +477,9 @@ mod tests {
         });
         let r = parse_device(&j, "/dev/sda", None);
         assert_eq!(r.info.media, MediaType::Ssd);
-        let SmartData::Ata(a) = &r.smart else { panic!() };
+        let SmartData::Ata(a) = &r.smart else {
+            panic!()
+        };
         assert_eq!(a.attributes.len(), 2);
         assert_eq!(a.extended_test_minutes, Some(85));
         assert_eq!(r.fallback_temp, Some(33));

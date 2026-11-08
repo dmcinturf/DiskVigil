@@ -9,12 +9,12 @@ mod platform;
 mod worker;
 
 use clap::{Parser, Subcommand, ValueEnum};
-use sg_core::config::{BackendMode, Paths, Settings};
+use dv_core::config::{BackendMode, Paths, Settings};
 use std::path::PathBuf;
 
 #[derive(Parser, Debug)]
 #[command(
-    name = "smart-guardian",
+    name = "diskvigil",
     version,
     about = "Portable HDD / SSD / NVMe health monitor. Run without a command to open the GUI."
 )]

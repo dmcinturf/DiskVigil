@@ -89,7 +89,10 @@ pub fn summary_rows(s: &DriveSnapshot) -> Vec<(&'static str, String)> {
     if let Some(l) = s.life_remaining_pct {
         v.push(("Remaining life", format!("{l}%")));
     }
-    v.push(("Data source", format!("{} {}", i.backend, i.transport.clone().unwrap_or_default())));
+    v.push((
+        "Data source",
+        format!("{} {}", i.backend, i.transport.clone().unwrap_or_default()),
+    ));
     v
 }
 
@@ -98,7 +101,7 @@ fn html(drives: &[DriveSnapshot]) -> String {
     let _ = write!(
         h,
         r#"<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>SMART Guardian report</title><style>
+<title>DiskVigil report</title><style>
 :root{{--bg:#f6f7f9;--card:#fff;--fg:#1c1f24;--muted:#5f6670;--line:#e3e6ea;--ok:#1f9d55;--warn:#d98a00;--bad:#d13438;--unk:#7a828c}}
 @media (prefers-color-scheme:dark){{:root{{--bg:#16181c;--card:#1f2228;--fg:#e8eaed;--muted:#9aa1ab;--line:#2e333b}}}}
 body{{background:var(--bg);color:var(--fg);font:14px/1.45 system-ui,Segoe UI,Roboto,sans-serif;margin:0;padding:24px 16px}}
@@ -111,7 +114,7 @@ main{{max-width:1100px;margin:auto}} h1{{margin:0 0 4px}} .muted{{color:var(--mu
 table{{border-collapse:collapse;width:100%;margin-top:10px}} td,th{{text-align:left;padding:5px 8px;border-bottom:1px solid var(--line)}}
 th{{font-weight:600;color:var(--muted)}} .scroll{{overflow-x:auto}} tr.Warning td{{color:var(--warn)}} tr.FailingNow td,tr.FailedInPast td{{color:var(--bad)}}
 li.Critical{{color:var(--bad)}} li.Warning{{color:var(--warn)}}
-</style></head><body><main><h1>SMART Guardian report</h1><div class="muted">Generated {} · {} drive(s)</div>"#,
+</style></head><body><main><h1>DiskVigil report</h1><div class="muted">Generated {} · {} drive(s)</div>"#,
         Local::now().format("%Y-%m-%d %H:%M:%S"),
         drives.len()
     );
@@ -125,13 +128,20 @@ li.Critical{{color:var(--bad)}} li.Warning{{color:var(--warn)}}
             esc(s.info.media.label()),
             esc(&format_bytes(s.info.capacity_bytes)),
             hr.health.map(|x| format!("{x}%")).unwrap_or("–".into()),
-            hr.performance.map(|x| format!("{x}%")).unwrap_or("–".into()),
+            hr.performance
+                .map(|x| format!("{x}%"))
+                .unwrap_or("–".into()),
             status_class(hr.status),
             hr.status.label()
         );
         h.push_str("<ul>");
         for i in &hr.issues {
-            let _ = write!(h, r#"<li class="{:?}">{}</li>"#, i.severity, esc(&i.message));
+            let _ = write!(
+                h,
+                r#"<li class="{:?}">{}</li>"#,
+                i.severity,
+                esc(&i.message)
+            );
         }
         h.push_str("</ul><div class=\"scroll\"><table>");
         for (k, v) in summary_rows(s) {
@@ -166,7 +176,11 @@ li.Critical{{color:var(--bad)}} li.Warning{{color:var(--warn)}}
                 h.push_str("</table></div>");
             }
             SmartData::Unavailable { reason } => {
-                let _ = write!(h, "<p class=\"muted\">SMART data unavailable: {}</p>", esc(reason));
+                let _ = write!(
+                    h,
+                    "<p class=\"muted\">SMART data unavailable: {}</p>",
+                    esc(reason)
+                );
             }
         }
         let log = s.self_test_log();
@@ -204,23 +218,60 @@ pub fn nvme_rows(s: &DriveSnapshot) -> Vec<(String, String)> {
                 format!("0x{:02X} – {}", n.critical_warning, warn.join(", "))
             },
         ),
-        ("Composite temperature".into(), n.temperature_c.map(|t| format!("{t} °C")).unwrap_or("–".into())),
+        (
+            "Composite temperature".into(),
+            n.temperature_c
+                .map(|t| format!("{t} °C"))
+                .unwrap_or("–".into()),
+        ),
         ("Available spare".into(), format!("{}%", n.available_spare)),
-        ("Available spare threshold".into(), format!("{}%", n.spare_threshold)),
+        (
+            "Available spare threshold".into(),
+            format!("{}%", n.spare_threshold),
+        ),
         ("Percentage used".into(), format!("{}%", n.percentage_used)),
-        ("Data units read".into(), format!("{} ({})", n.data_units_read, format_bytes(n.data_units_read.saturating_mul(512_000)))),
-        ("Data units written".into(), format!("{} ({})", n.data_units_written, format_bytes(n.data_units_written.saturating_mul(512_000)))),
+        (
+            "Data units read".into(),
+            format!(
+                "{} ({})",
+                n.data_units_read,
+                format_bytes(n.data_units_read.saturating_mul(512_000))
+            ),
+        ),
+        (
+            "Data units written".into(),
+            format!(
+                "{} ({})",
+                n.data_units_written,
+                format_bytes(n.data_units_written.saturating_mul(512_000))
+            ),
+        ),
         ("Host read commands".into(), n.host_reads.to_string()),
         ("Host write commands".into(), n.host_writes.to_string()),
-        ("Controller busy time".into(), format!("{} min", n.controller_busy_minutes)),
+        (
+            "Controller busy time".into(),
+            format!("{} min", n.controller_busy_minutes),
+        ),
         ("Power cycles".into(), n.power_cycles.to_string()),
         ("Power-on hours".into(), n.power_on_hours.to_string()),
         ("Unsafe shutdowns".into(), n.unsafe_shutdowns.to_string()),
-        ("Media & data integrity errors".into(), n.media_errors.to_string()),
+        (
+            "Media & data integrity errors".into(),
+            n.media_errors.to_string(),
+        ),
         ("Error log entries".into(), n.error_log_entries.to_string()),
-        ("Warning temperature time".into(), format!("{} min", n.warning_temp_minutes)),
-        ("Critical temperature time".into(), format!("{} min", n.critical_temp_minutes)),
-        ("Thermal throttling events".into(), n.thermal_throttle_events.to_string()),
+        (
+            "Warning temperature time".into(),
+            format!("{} min", n.warning_temp_minutes),
+        ),
+        (
+            "Critical temperature time".into(),
+            format!("{} min", n.critical_temp_minutes),
+        ),
+        (
+            "Thermal throttling events".into(),
+            n.thermal_throttle_events.to_string(),
+        ),
     ];
     for (i, t) in n.sensor_temps_c.iter().enumerate() {
         v.push((format!("Temperature sensor {}", i + 1), format!("{t} °C")));
@@ -237,7 +288,10 @@ fn csv(drives: &[DriveSnapshot]) -> String {
             s.info.display_name(),
             s.info.serial.clone(),
             s.health.health.map(|x| x.to_string()).unwrap_or_default(),
-            s.health.performance.map(|x| x.to_string()).unwrap_or_default(),
+            s.health
+                .performance
+                .map(|x| x.to_string())
+                .unwrap_or_default(),
             s.health.status.label().to_string(),
             s.temperature_c.map(|x| x.to_string()).unwrap_or_default(),
         ]

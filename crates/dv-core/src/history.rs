@@ -17,11 +17,22 @@ pub const NVME_PCT_USED: u16 = 1005;
 pub const NVME_CRIT_WARNING: u16 = 1006;
 
 const TRACKED_ATA: &[u8] = &[
-    1, 5, 7, 9, 10, 12, 171, 172, 177, 183, 184, 187, 188, 193, 194, 196, 197, 198, 199, 231, 233, 241, 242,
+    1, 5, 7, 9, 10, 12, 171, 172, 177, 183, 184, 187, 188, 193, 194, 196, 197, 198, 199, 231, 233,
+    241, 242,
 ];
 
 /// Attributes whose increase is a reliability event worth a history point / alert.
-pub const CRITICAL_COUNTERS: &[u16] = &[5, 10, 184, 187, 196, 197, 198, NVME_MEDIA_ERRORS, NVME_CRIT_WARNING];
+pub const CRITICAL_COUNTERS: &[u16] = &[
+    5,
+    10,
+    184,
+    187,
+    196,
+    197,
+    198,
+    NVME_MEDIA_ERRORS,
+    NVME_CRIT_WARNING,
+];
 
 pub fn tracked_name(id: u16) -> String {
     match id {
@@ -31,7 +42,9 @@ pub fn tracked_name(id: u16) -> String {
         NVME_SPARE => "Available spare (%)".into(),
         NVME_PCT_USED => "Percentage used".into(),
         NVME_CRIT_WARNING => "Critical warning".into(),
-        id if id < 256 => crate::ata::attributes::meta(id as u8, false).name.to_string(),
+        id if id < 256 => crate::ata::attributes::meta(id as u8, false)
+            .name
+            .to_string(),
         id => format!("#{id}"),
     }
 }
@@ -118,7 +131,9 @@ impl HistoryStore {
                 let Some(key) = p.file_stem().and_then(|s| s.to_str()).map(str::to_string) else {
                     continue;
                 };
-                let Ok(text) = std::fs::read_to_string(&p) else { continue };
+                let Ok(text) = std::fs::read_to_string(&p) else {
+                    continue;
+                };
                 let mut pts: Vec<HistoryPoint> = text
                     .lines()
                     .filter_map(|l| serde_json::from_str(l).ok())
@@ -163,7 +178,11 @@ impl HistoryStore {
         }
         if let Ok(line) = serde_json::to_string(&p) {
             let path = self.dir.join(format!("{key}.jsonl"));
-            if let Ok(mut f) = std::fs::OpenOptions::new().create(true).append(true).open(path) {
+            if let Ok(mut f) = std::fs::OpenOptions::new()
+                .create(true)
+                .append(true)
+                .open(path)
+            {
                 let _ = writeln!(f, "{line}");
             }
         }
@@ -211,7 +230,10 @@ pub fn life_projection(points: &[HistoryPoint]) -> Option<LifeProjection> {
     let pts: Vec<(f64, f64)> = points
         .iter()
         .filter(|p| p.t >= since)
-        .filter_map(|p| p.life.map(|l| (p.t.timestamp() as f64 / 86_400.0, l as f64)))
+        .filter_map(|p| {
+            p.life
+                .map(|l| (p.t.timestamp() as f64 / 86_400.0, l as f64))
+        })
         .collect();
     let (first, last) = (pts.first()?, pts.last()?);
     if last.0 - first.0 < 7.0 || first.1 - last.1 < 1.0 {
